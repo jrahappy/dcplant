@@ -1,0 +1,63 @@
+# AWS ECS Task Definition for DCPlant
+# This file defines how to run DCPlant on AWS ECS (Elastic Container Service)
+
+family: dcplant
+networkMode: awsvpc
+requiresCompatibilities:
+  - FARGATE
+cpu: '1024'  # 1 vCPU
+memory: '2048'  # 2 GB
+
+taskRoleArn: arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskRole
+executionRoleArn: arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskExecutionRole
+
+containerDefinitions:
+  - name: dcplant-web
+    image: YOUR_ECR_REPOSITORY_URI:latest
+    essential: true
+    portMappings:
+      - containerPort: 8000
+        protocol: tcp
+    environment:
+      - name: DJANGO_SETTINGS_MODULE
+        value: core.settings.production
+      - name: ALLOWED_HOSTS
+        value: "*"
+    secrets:
+      - name: SECRET_KEY
+        valueFrom: arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:dcplant/django-secret
+      - name: DATABASE_URL
+        valueFrom: arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:dcplant/database-url
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom: arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:dcplant/aws-access-key
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom: arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:dcplant/aws-secret-key
+    logConfiguration:
+      logDriver: awslogs
+      options:
+        awslogs-group: /ecs/dcplant
+        awslogs-region: us-east-1
+        awslogs-stream-prefix: ecs
+    healthCheck:
+      command:
+        - CMD-SHELL
+        - curl -f http://localhost:8000/health/ || exit 1
+      interval: 30
+      timeout: 5
+      retries: 3
+      startPeriod: 60
+    mountPoints:
+      - sourceVolume: media
+        containerPath: /app/media
+      - sourceVolume: static
+        containerPath: /app/staticfiles
+
+volumes:
+  - name: media
+    efsVolumeConfiguration:
+      fileSystemId: fs-YOUR_EFS_ID
+      rootDirectory: /media
+  - name: static
+    efsVolumeConfiguration:
+      fileSystemId: fs-YOUR_EFS_ID
+      rootDirectory: /static

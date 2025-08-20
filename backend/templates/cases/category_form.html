@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">{{ title }}</h3>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">
+                            Name <span class="text-danger">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger small">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.slug.id_for_label }}" class="form-label">
+                            Slug <span class="text-danger">*</span>
+                        </label>
+                        {{ form.slug }}
+                        {% if form.slug.errors %}
+                        <div class="text-danger small">{{ form.slug.errors }}</div>
+                        {% endif %}
+                        <small class="text-muted">URL-friendly version of the name (e.g., "general-dentistry")</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="text-danger small">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.parent.id_for_label }}" class="form-label">Parent Category</label>
+                        {{ form.parent }}
+                        {% if form.parent.errors %}
+                        <div class="text-danger small">{{ form.parent.errors }}</div>
+                        {% endif %}
+                        <small class="text-muted">Leave blank for top-level category</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                Active (category can be selected for cases)
+                            </label>
+                        </div>
+                        {% if form.is_active.errors %}
+                        <div class="text-danger small">{{ form.is_active.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'cases:category_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Save Category
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-generate slug from name
+document.getElementById('{{ form.name.id_for_label }}').addEventListener('input', function(e) {
+    const slug = document.getElementById('{{ form.slug.id_for_label }}');
+    if (!slug.value || slug.value === slugify(slug.dataset.lastValue || '')) {
+        slug.value = slugify(e.target.value);
+        slug.dataset.lastValue = e.target.value;
+    }
+});
+
+function slugify(text) {
+    return text.toString().toLowerCase()
+        .replace(/\s+/g, '-')           // Replace spaces with -
+        .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+        .replace(/\-\-+/g, '-')          // Replace multiple - with single -
+        .replace(/^-+/, '')              // Trim - from start of text
+        .replace(/-+$/, '');             // Trim - from end of text
+}
+</script>
+{% endblock %}

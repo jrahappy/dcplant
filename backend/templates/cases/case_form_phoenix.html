@@ -1,0 +1,330 @@
+{% extends 'base_phoenix.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Edit Case{% else %}New Case{% endif %} - DCPlant{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="phoenix-page-header">
+    <div>
+        <h1 class="phoenix-page-title">{% if form.instance.pk %}Edit Case{% else %}New Case{% endif %}</h1>
+        <nav class="phoenix-breadcrumb">
+            <a href="{% url 'dashboard:home' %}" class="phoenix-breadcrumb-item">Home</a>
+            <span class="phoenix-breadcrumb-separator">/</span>
+            <a href="{% url 'cases:case_list' %}" class="phoenix-breadcrumb-item">Cases</a>
+            <span class="phoenix-breadcrumb-separator">/</span>
+            <span class="phoenix-breadcrumb-item">{% if form.instance.pk %}Edit{% else %}Create{% endif %}</span>
+        </nav>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="caseForm">
+    {% csrf_token %}
+    
+    <div class="row g-3">
+        <!-- Main Form -->
+        <div class="col-lg-8">
+            <!-- Basic Information -->
+            <div class="phoenix-card mb-3">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Basic Information</h5>
+                </div>
+                <div class="phoenix-card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="phoenix-form-label required">Case Number</label>
+                            <input type="text" class="phoenix-form-control" name="case_number" 
+                                   value="{{ form.instance.case_number|default:'' }}" 
+                                   placeholder="Auto-generated if empty" {% if form.instance.pk %}readonly{% endif %}>
+                            {% if form.case_number.errors %}
+                            <div class="text-danger small mt-1">{{ form.case_number.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="phoenix-form-label required">Patient</label>
+                            <select class="phoenix-form-control" name="patient" required>
+                                <option value="">Select Patient</option>
+                                {% for patient in form.fields.patient.queryset %}
+                                <option value="{{ patient.id }}" {% if patient.id == form.instance.patient.id %}selected{% endif %}>
+                                    {{ patient.full_name }} - {{ patient.email|default:"No email" }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.patient.errors %}
+                            <div class="text-danger small mt-1">{{ form.patient.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="phoenix-form-label">Category</label>
+                            <select class="phoenix-form-control" name="category">
+                                <option value="">Select Category</option>
+                                {% for category in form.fields.category.queryset %}
+                                <option value="{{ category.id }}" {% if category.id == form.instance.category.id %}selected{% endif %}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="phoenix-form-label">Assigned To</label>
+                            <select class="phoenix-form-control" name="assigned_to">
+                                <option value="">Unassigned</option>
+                                {% for user in form.fields.assigned_to.queryset %}
+                                <option value="{{ user.id }}" {% if user.id == form.instance.assigned_to.id %}selected{% endif %}>
+                                    {{ user.get_full_name|default:user.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="phoenix-form-label">Status</label>
+                            <select class="phoenix-form-control" name="status">
+                                {% for value, label in form.fields.status.choices %}
+                                <option value="{{ value }}" {% if value == form.instance.status %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="phoenix-form-label">Priority</label>
+                            <select class="phoenix-form-control" name="priority">
+                                {% for value, label in form.fields.priority.choices %}
+                                <option value="{{ value }}" {% if value == form.instance.priority %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Clinical Information -->
+            <div class="phoenix-card mb-3">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Clinical Information</h5>
+                </div>
+                <div class="phoenix-card-body">
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Chief Complaint</label>
+                        <textarea class="phoenix-form-control" name="chief_complaint" rows="3" 
+                                  placeholder="Describe the patient's main concern...">{{ form.instance.chief_complaint|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Clinical Findings</label>
+                        <textarea class="phoenix-form-control" name="clinical_findings" rows="4" 
+                                  placeholder="Document clinical observations and findings...">{{ form.instance.clinical_findings|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Diagnosis</label>
+                        <textarea class="phoenix-form-control" name="diagnosis" rows="3" 
+                                  placeholder="Enter diagnosis...">{{ form.instance.diagnosis|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Treatment Plan</label>
+                        <textarea class="phoenix-form-control" name="treatment_plan" rows="4" 
+                                  placeholder="Outline the treatment plan...">{{ form.instance.treatment_plan|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Prognosis</label>
+                        <textarea class="phoenix-form-control" name="prognosis" rows="3" 
+                                  placeholder="Expected outcome and recovery timeline...">{{ form.instance.prognosis|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Notes</label>
+                        <textarea class="phoenix-form-control" name="notes" rows="3" 
+                                  placeholder="Additional notes...">{{ form.instance.notes|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Images Section (for existing cases) -->
+            {% if form.instance.pk %}
+            <div class="phoenix-card">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Images & Files</h5>
+                    <a href="{% url 'cases:image_upload' form.instance.pk %}" class="btn-phoenix-primary btn-sm">
+                        <i data-feather="upload" style="width: 14px; height: 14px;" class="me-1"></i>
+                        Upload Images
+                    </a>
+                </div>
+                <div class="phoenix-card-body">
+                    {% if form.instance.images.exists %}
+                    <div class="row g-3">
+                        {% for image in form.instance.images.all|slice:":6" %}
+                        <div class="col-md-4">
+                            <div class="position-relative">
+                                {% if image.image_type == 'DICOM' %}
+                                <div class="bg-light rounded p-3 text-center">
+                                    <i data-feather="file-text" style="width: 48px; height: 48px;" class="text-primary mb-2"></i>
+                                    <p class="small mb-0">DICOM File</p>
+                                </div>
+                                {% else %}
+                                <img src="{{ image.image.url }}" alt="{{ image.description }}" class="img-fluid rounded">
+                                {% endif %}
+                                {% if image.is_primary %}
+                                <span class="position-absolute top-0 end-0 m-2 phoenix-badge phoenix-badge-success">Primary</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if form.instance.images.count > 6 %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'cases:case_detail' form.instance.pk %}" class="btn-phoenix-secondary btn-sm">
+                            View All {{ form.instance.images.count }} Images
+                        </a>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i data-feather="image" style="width: 48px; height: 48px;" class="mb-3"></i>
+                        <p>No images uploaded yet</p>
+                        <a href="{% url 'cases:image_upload' form.instance.pk %}" class="btn-phoenix-primary btn-sm">
+                            Upload First Image
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Actions -->
+            <div class="phoenix-card mb-3">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Actions</h5>
+                </div>
+                <div class="phoenix-card-body">
+                    <button type="submit" name="action" value="save" class="btn-phoenix-primary w-100 mb-2">
+                        <i data-feather="save" style="width: 16px; height: 16px;" class="me-1"></i>
+                        {% if form.instance.pk %}Update Case{% else %}Create Case{% endif %}
+                    </button>
+                    
+                    {% if not form.instance.pk %}
+                    <button type="submit" name="action" value="save_and_add" class="btn-phoenix-secondary w-100 mb-2">
+                        <i data-feather="plus-circle" style="width: 16px; height: 16px;" class="me-1"></i>
+                        Save & Add Another
+                    </button>
+                    {% endif %}
+                    
+                    <a href="{% if form.instance.pk %}{% url 'cases:case_detail' form.instance.pk %}{% else %}{% url 'cases:case_list' %}{% endif %}" 
+                       class="btn btn-link text-muted w-100">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Case Information (for existing cases) -->
+            {% if form.instance.pk %}
+            <div class="phoenix-card mb-3">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Case Information</h5>
+                </div>
+                <div class="phoenix-card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small d-block">Created By</label>
+                        <div class="d-flex align-items-center">
+                            <img src="https://ui-avatars.com/api/?name={{ form.instance.created_by.get_full_name|default:form.instance.created_by.username }}&background=3874ff&color=fff&size=32" 
+                                 alt="User" class="rounded-circle me-2" style="width: 32px; height: 32px;">
+                            <div>
+                                <div class="fw-semibold">{{ form.instance.created_by.get_full_name|default:form.instance.created_by.username }}</div>
+                                <div class="text-muted small">{{ form.instance.created_at|date:"M d, Y g:i A" }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if form.instance.updated_at != form.instance.created_at %}
+                    <div>
+                        <label class="text-muted small d-block">Last Updated</label>
+                        <div class="text-dark">{{ form.instance.updated_at|date:"M d, Y g:i A" }}</div>
+                        <div class="text-muted small">{{ form.instance.updated_at|timesince }} ago</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="phoenix-card mb-3">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Quick Stats</h5>
+                </div>
+                <div class="phoenix-card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Images</span>
+                        <span class="fw-semibold">{{ form.instance.images.count }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Comments</span>
+                        <span class="fw-semibold">{{ form.instance.comments.count }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Activities</span>
+                        <span class="fw-semibold">{{ form.instance.activities.count }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Tips -->
+            <div class="phoenix-card">
+                <div class="phoenix-card-header">
+                    <h5 class="phoenix-card-title">Tips</h5>
+                </div>
+                <div class="phoenix-card-body">
+                    <ul class="mb-0 ps-3">
+                        <li class="mb-2 small">Case numbers are auto-generated if left empty</li>
+                        <li class="mb-2 small">Upload images after creating the case</li>
+                        <li class="mb-2 small">Use detailed clinical findings for better documentation</li>
+                        <li class="small">Set priority to "Urgent" for time-sensitive cases</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    // Initialize Feather Icons
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+        
+        // Form validation
+        const form = document.getElementById('caseForm');
+        form.addEventListener('submit', function(e) {
+            const patient = form.querySelector('[name="patient"]').value;
+            if (!patient) {
+                e.preventDefault();
+                alert('Please select a patient');
+                return false;
+            }
+        });
+        
+        // Auto-save draft
+        let autoSaveTimer;
+        const formInputs = form.querySelectorAll('input, textarea, select');
+        formInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(function() {
+                    console.log('Auto-saving draft...');
+                    // Implement auto-save logic here
+                }, 3000);
+            });
+        });
+    });
+</script>
+{% endblock %}

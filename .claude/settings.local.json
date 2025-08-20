@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(django-admin startproject:*)",
+      "Bash(python manage.py startapp:*)",
+      "Bash(python:*)",
+      "Bash(venvScriptspip.exe install --upgrade pip)",
+      "Bash(venv\\\\Scripts\\\\python.exe -m pip install:*)",
+      "Bash(./venv/Scripts/python.exe -m pip install:*)",
+      "Bash(./venv/Scripts/pip.exe install:*)",
+      "Bash(../venv/Scripts/python.exe manage.py check)",
+      "Bash(../venv/Scripts/python.exe manage.py makemigrations)",
+      "Bash(set DJANGO_SETTINGS_MODULE=core.settings.local)",
+      "Bash(../venv/Scripts/python.exe manage.py migrate)",
+      "Bash(../venv/Scripts/python.exe -m pytest accounts/tests.py -v)",
+      "Bash(../venv/Scripts/python.exe -m pytest --ds=core.settings.local accounts/tests.py -v)",
+      "Bash(../venv/Scripts/python.exe manage.py test accounts)",
+      "Bash(docker-compose up:*)",
+      "Bash(cp:*)",
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Bash(..venvScriptspython.exe manage.py runserver)",
+      "Bash(../venv/Scripts/python.exe manage.py runserver)",
+      "Bash(../venv/Scripts/python.exe manage.py:*)",
+      "Bash(../venv/Scripts/python.exe:*)",
+      "Bash(../venv/Scripts/pip.exe install django-summernote)",
+      "Bash(../venv/Scripts/pip.exe install pydicom pillow)",
+      "Bash(timeout:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:prium.github.io)",
+      "Bash(set DJANGO_SETTINGS_MODULE=core.settings)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

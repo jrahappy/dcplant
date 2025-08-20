@@ -1,0 +1,80 @@
+# Heroku Deployment Configuration for DCPlant
+
+# Create Procfile for Heroku
+web: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 3
+release: python manage.py migrate
+
+# runtime.txt - Specify Python version
+python-3.11.7
+
+# Heroku app.json for Deploy button
+{
+  "name": "DCPlant - Dental Case Management",
+  "description": "A comprehensive dental case and patient management system",
+  "repository": "https://github.com/yourusername/dcplant",
+  "logo": "https://your-logo-url.png",
+  "keywords": ["django", "dental", "medical", "dicom", "patient-management"],
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini"
+    },
+    {
+      "plan": "heroku-redis:mini"
+    },
+    {
+      "plan": "cloudinary:starter"
+    }
+  ],
+  "env": {
+    "SECRET_KEY": {
+      "description": "Django secret key for production",
+      "generator": "secret"
+    },
+    "DJANGO_SETTINGS_MODULE": {
+      "description": "Django settings module",
+      "value": "core.settings.production"
+    },
+    "ALLOWED_HOSTS": {
+      "description": "Comma-separated list of allowed hosts",
+      "value": ".herokuapp.com"
+    },
+    "USE_S3": {
+      "description": "Use AWS S3 for media storage",
+      "value": "False"
+    },
+    "EMAIL_HOST_USER": {
+      "description": "Email address for sending emails",
+      "required": false
+    },
+    "EMAIL_HOST_PASSWORD": {
+      "description": "Email password or app-specific password",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "python manage.py createsuperuser --noinput"
+  }
+}
+
+# Deployment steps:
+# 1. Install Heroku CLI
+# 2. Login: heroku login
+# 3. Create app: heroku create dcplant-app
+# 4. Add PostgreSQL: heroku addons:create heroku-postgresql:mini
+# 5. Add Redis: heroku addons:create heroku-redis:mini
+# 6. Set environment variables: heroku config:set SECRET_KEY='your-secret-key'
+# 7. Deploy: git push heroku main
+# 8. Run migrations: heroku run python manage.py migrate
+# 9. Create superuser: heroku run python manage.py createsuperuser
+# 10. Open app: heroku open

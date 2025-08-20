@@ -1,0 +1,313 @@
+{% extends 'base_phoenix.html' %}
+{% load static %}
+
+{% block title %}Dashboard - DCPlant{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="phoenix-page-header">
+    <div>
+        <h1 class="phoenix-page-title">Dashboard</h1>
+        <nav class="phoenix-breadcrumb">
+            <a href="{% url 'dashboard:home' %}" class="phoenix-breadcrumb-item">Home</a>
+            <span class="phoenix-breadcrumb-separator">/</span>
+            <span class="phoenix-breadcrumb-item">Dashboard</span>
+        </nav>
+    </div>
+    <div>
+        <button class="btn-phoenix-secondary me-2">
+            <i data-feather="download" style="width: 16px; height: 16px;" class="me-1"></i>
+            Export
+        </button>
+        <a href="{% url 'cases:case_create' %}" class="btn-phoenix-primary">
+            <i data-feather="plus" style="width: 16px; height: 16px;" class="me-1"></i>
+            New Case
+        </a>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="phoenix-stats-card">
+            <i data-feather="briefcase" class="phoenix-stats-card-icon text-primary"></i>
+            <div class="phoenix-stats-card-value">{{ total_cases|default:"0" }}</div>
+            <div class="phoenix-stats-card-label">Total Cases</div>
+            <div class="phoenix-stats-card-change positive">
+                <i data-feather="trending-up" style="width: 14px; height: 14px;"></i>
+                12% from last month
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-sm-6 col-xl-3">
+        <div class="phoenix-stats-card">
+            <i data-feather="activity" class="phoenix-stats-card-icon text-success"></i>
+            <div class="phoenix-stats-card-value">{{ active_cases|default:"0" }}</div>
+            <div class="phoenix-stats-card-label">Active Cases</div>
+            <div class="phoenix-stats-card-change positive">
+                <i data-feather="trending-up" style="width: 14px; height: 14px;"></i>
+                8% increase
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-sm-6 col-xl-3">
+        <div class="phoenix-stats-card">
+            <i data-feather="users" class="phoenix-stats-card-icon text-warning"></i>
+            <div class="phoenix-stats-card-value">{{ total_patients|default:"0" }}</div>
+            <div class="phoenix-stats-card-label">Total Patients</div>
+            <div class="phoenix-stats-card-change positive">
+                <i data-feather="trending-up" style="width: 14px; height: 14px;"></i>
+                New registrations
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-sm-6 col-xl-3">
+        <div class="phoenix-stats-card">
+            <i data-feather="clock" class="phoenix-stats-card-icon text-danger"></i>
+            <div class="phoenix-stats-card-value">{{ recent_activities|length|default:"0" }}</div>
+            <div class="phoenix-stats-card-label">Recent Activities</div>
+            <div class="phoenix-stats-card-change">
+                Last 24 hours
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Recent Cases -->
+    <div class="col-lg-8">
+        <div class="phoenix-card">
+            <div class="phoenix-card-header">
+                <h5 class="phoenix-card-title">Recent Cases</h5>
+                <div>
+                    <button class="btn btn-sm btn-link text-primary">
+                        <i data-feather="filter" style="width: 16px; height: 16px;"></i>
+                    </button>
+                    <button class="btn btn-sm btn-link text-primary">
+                        <i data-feather="more-vertical" style="width: 16px; height: 16px;"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="phoenix-card-body p-0">
+                <div class="table-responsive">
+                    <table class="phoenix-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Case #</th>
+                                <th>Patient</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Created</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for case in recent_cases %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'cases:case_detail' case.id %}" class="text-primary fw-semibold">
+                                        #{{ case.case_number|truncatechars:12 }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.75rem; font-weight: 600;">
+                                            {{ case.patient.first_name.0|upper }}{{ case.patient.last_name.0|upper }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold">{{ case.patient.full_name }}</div>
+                                            <div class="text-muted small">{{ case.patient.email|default:"" }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if case.category %}
+                                    <span class="phoenix-badge phoenix-badge-primary">
+                                        {{ case.category.name }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if case.status == 'open' %}
+                                        <span class="phoenix-badge phoenix-badge-primary">Open</span>
+                                    {% elif case.status == 'in_progress' %}
+                                        <span class="phoenix-badge phoenix-badge-warning">In Progress</span>
+                                    {% elif case.status == 'completed' %}
+                                        <span class="phoenix-badge phoenix-badge-success">Completed</span>
+                                    {% elif case.status == 'cancelled' %}
+                                        <span class="phoenix-badge phoenix-badge-danger">Cancelled</span>
+                                    {% else %}
+                                        <span class="phoenix-badge">{{ case.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if case.priority == 'urgent' %}
+                                        <span class="text-danger fw-semibold">
+                                            <i data-feather="alert-circle" style="width: 14px; height: 14px;"></i>
+                                            Urgent
+                                        </span>
+                                    {% elif case.priority == 'high' %}
+                                        <span class="text-warning fw-semibold">
+                                            <i data-feather="arrow-up" style="width: 14px; height: 14px;"></i>
+                                            High
+                                        </span>
+                                    {% elif case.priority == 'medium' %}
+                                        <span class="text-info">
+                                            <i data-feather="minus" style="width: 14px; height: 14px;"></i>
+                                            Medium
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">
+                                            <i data-feather="arrow-down" style="width: 14px; height: 14px;"></i>
+                                            Low
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ case.created_at|date:"M d, Y" }}</div>
+                                    <div class="text-muted small">{{ case.created_at|date:"g:i A" }}</div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-primary" type="button" data-bs-toggle="dropdown">
+                                            <i data-feather="more-horizontal" style="width: 16px; height: 16px;"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'cases:case_detail' case.id %}">
+                                                    <i data-feather="eye" style="width: 14px; height: 14px;" class="me-2"></i>
+                                                    View Details
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'cases:case_update' case.id %}">
+                                                    <i data-feather="edit" style="width: 14px; height: 14px;" class="me-2"></i>
+                                                    Edit
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#">
+                                                    <i data-feather="trash-2" style="width: 14px; height: 14px;" class="me-2"></i>
+                                                    Delete
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i data-feather="inbox" style="width: 48px; height: 48px;" class="mb-3"></i>
+                                        <p>No cases found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if recent_cases %}
+                <div class="p-3 border-top text-center">
+                    <a href="{% url 'cases:case_list' %}" class="btn-phoenix-secondary">
+                        View All Cases
+                        <i data-feather="arrow-right" style="width: 14px; height: 14px;" class="ms-1"></i>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Recent Activities -->
+        <div class="phoenix-card mb-3">
+            <div class="phoenix-card-header">
+                <h5 class="phoenix-card-title">Recent Activities</h5>
+                <button class="btn btn-sm btn-link text-primary">
+                    <i data-feather="refresh-cw" style="width: 16px; height: 16px;"></i>
+                </button>
+            </div>
+            <div class="phoenix-card-body">
+                <div class="activity-timeline">
+                    {% for activity in recent_activities %}
+                    <div class="d-flex mb-3">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
+                                <i data-feather="activity" style="width: 16px; height: 16px;" class="text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1 fs-7">{{ activity.user.get_full_name|default:activity.user.username }}</h6>
+                                    <p class="mb-1 text-muted small">{{ activity.description }}</p>
+                                    <a href="{% url 'cases:case_detail' activity.case.id %}" class="text-primary small">
+                                        Case #{{ activity.case.case_number|truncatechars:15 }}
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i data-feather="clock" style="width: 12px; height: 12px;"></i>
+                                {{ activity.created_at|timesince }} ago
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-3">
+                        <i data-feather="activity" style="width: 32px; height: 32px;" class="mb-2"></i>
+                        <p>No recent activities</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Case Distribution -->
+        <div class="phoenix-card">
+            <div class="phoenix-card-header">
+                <h5 class="phoenix-card-title">Case Distribution</h5>
+                <button class="btn btn-sm btn-link text-primary">
+                    <i data-feather="pie-chart" style="width: 16px; height: 16px;"></i>
+                </button>
+            </div>
+            <div class="phoenix-card-body">
+                {% for stat in case_stats %}
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle me-2" style="width: 8px; height: 8px; background: var(--phoenix-primary);"></div>
+                        <span class="fw-medium">{{ stat.status }}</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="phoenix-badge phoenix-badge-primary">{{ stat.count }}</span>
+                        <span class="text-muted ms-2 small">{{ stat.percentage|default:"0" }}%</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-3">
+                    <i data-feather="bar-chart-2" style="width: 32px; height: 32px;" class="mb-2"></i>
+                    <p>No data available</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize Feather Icons for dynamically loaded content
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Images for Case {{ case.case_number }} - DCPlant{% endblock %}
+
+{% block extra_css %}
+<style>
+    .image-card {
+        transition: transform 0.2s;
+        height: 100%;
+    }
+    .image-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .image-thumbnail {
+        height: 200px;
+        object-fit: cover;
+        cursor: pointer;
+    }
+    .primary-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1;
+    }
+    .image-type-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' case.pk %}">{{ case.case_number }}</a></li>
+                    <li class="breadcrumb-item active">Images</li>
+                </ol>
+            </nav>
+            <h1><i class="bi bi-images me-2"></i>Case Images</h1>
+            <p class="text-muted mb-0">{{ case.patient.full_name }} - {{ case.case_number }}</p>
+        </div>
+        <div>
+            <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-outline-primary me-2">
+                <i class="bi bi-arrow-left"></i> Back to Case
+            </a>
+            <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary">
+                <i class="bi bi-cloud-upload"></i> Upload Image
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ images.count }}</h3>
+                    <small class="text-muted">Total Images</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ images.filter.image_type='XRAY'.count }}</h3>
+                    <small class="text-muted">X-Rays</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ images.filter.image_type='PHOTO'.count }}</h3>
+                    <small class="text-muted">Photographs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ images.filter.is_deidentified=True.count }}</h3>
+                    <small class="text-muted">De-identified</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Grid -->
+    {% if images %}
+    <div class="row">
+        {% for image in images %}
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="card image-card">
+                <div class="position-relative">
+                    <!-- Badges -->
+                    {% if image.is_primary %}
+                    <span class="badge bg-warning primary-badge">Primary</span>
+                    {% endif %}
+                    <span class="badge bg-info image-type-badge">{{ image.get_image_type_display }}</span>
+                    
+                    <!-- Image -->
+                    {% if image.is_dicom or image.image_type == 'DICOM' %}
+                    <a href="{% url 'cases:dicom_viewer' image.pk %}" class="d-block">
+                        <div class="bg-dark text-white text-center p-5" style="height: 200px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            <i class="bi bi-file-earmark-medical" style="font-size: 3rem;"></i>
+                            <small class="mt-2">DICOM Image</small>
+                        </div>
+                    </a>
+                    {% else %}
+                    <img src="{{ image.image.url }}" class="card-img-top image-thumbnail" 
+                         alt="{{ image.title }}"
+                         data-bs-toggle="modal" data-bs-target="#imageModal{{ image.pk }}">
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    <h6 class="card-title mb-1">{{ image.title }}</h6>
+                    {% if image.description %}
+                    <p class="card-text small text-muted">{{ image.description|truncatechars:50 }}</p>
+                    {% endif %}
+                    
+                    <div class="small text-muted mb-2">
+                        {% if image.taken_date %}
+                        <i class="bi bi-calendar3"></i> {{ image.taken_date|date:"M d, Y" }}<br>
+                        {% endif %}
+                        <i class="bi bi-person"></i> {{ image.uploaded_by.get_full_name|default:image.uploaded_by.username }}<br>
+                        <i class="bi bi-clock"></i> {{ image.created_at|date:"M d, Y" }}
+                    </div>
+                    
+                    {% if image.is_deidentified %}
+                    <span class="badge bg-success mb-2">De-identified</span>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            {% if image.is_dicom or image.image_type == 'DICOM' %}
+                            <a href="{% url 'cases:dicom_viewer' image.pk %}" class="btn btn-sm btn-primary" title="View DICOM">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            {% endif %}
+                            <a href="{{ image.image.url }}" download class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </div>
+                        {% if user == image.uploaded_by or user.profile.is_admin or user.is_staff %}
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'cases:image_edit' image.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    onclick="confirmDelete({{ image.pk }}, '{{ image.title }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Image Modal -->
+        <div class="modal fade" id="imageModal{{ image.pk }}" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ image.title }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="{{ image.image.url }}" class="img-fluid" alt="{{ image.title }}">
+                        {% if image.description %}
+                        <p class="mt-3">{{ image.description }}</p>
+                        {% endif %}
+                        <div class="mt-3 text-muted">
+                            <small>
+                                Type: {{ image.get_image_type_display }}
+                                {% if image.taken_date %}
+                                | Taken: {{ image.taken_date|date:"M d, Y" }}
+                                {% endif %}
+                                | Uploaded: {{ image.created_at|date:"M d, Y H:i" }}
+                                by {{ image.uploaded_by.get_full_name|default:image.uploaded_by.username }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ image.image.url }}" download class="btn btn-primary">
+                            <i class="bi bi-download"></i> Download
+                        </a>
+                        {% if user == image.uploaded_by or user.profile.is_admin or user.is_staff %}
+                        <a href="{% url 'cases:image_edit' image.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        {% endif %}
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">
+        <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
+        <p class="mt-2 mb-1">No images uploaded for this case yet.</p>
+        <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary mt-2">
+            <i class="bi bi-cloud-upload"></i> Upload First Image
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete the image "<span id="imageName"></span>"? 
+                This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(imageId, imageName) {
+    document.getElementById('imageName').textContent = imageName;
+    const deleteForm = document.getElementById('deleteForm');
+    deleteForm.action = `/cases/image/${imageId}/delete/`;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+</script>
+{% endblock %}

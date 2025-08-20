@@ -1,0 +1,318 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DCPlant - Dental Case Management{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon">
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/phoenix-theme.css' %}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="phoenix-wrapper">
+        {% if user.is_authenticated %}
+        <!-- Vertical Navbar -->
+        <nav class="phoenix-navbar-vertical" id="navbarVertical">
+            <!-- Logo -->
+            <div class="phoenix-navbar-logo">
+                <a href="{% url 'dashboard:home' %}" class="d-flex align-items-center text-decoration-none">
+                    <i class="bi bi-hospital fs-4 text-primary"></i>
+                    <span class="navbar-logo-text">DCPlant</span>
+                </a>
+            </div>
+            
+            <!-- Navigation Menu -->
+            <div class="phoenix-navbar-nav">
+                <!-- Main Menu -->
+                <div class="phoenix-nav-item">
+                    <a class="phoenix-nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'dashboard:home' %}">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="home"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Dashboard</span>
+                    </a>
+                </div>
+                
+                <!-- Cases Dropdown -->
+                <div class="phoenix-nav-item phoenix-nav-dropdown">
+                    <a class="phoenix-nav-link phoenix-nav-dropdown-toggle {% if 'cases' in request.path %}active{% endif %}" href="#" data-bs-toggle="collapse" data-bs-target="#casesMenu">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="folder"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Cases</span>
+                    </a>
+                    <div class="phoenix-nav-dropdown-menu collapse {% if 'cases' in request.path %}show{% endif %}" id="casesMenu">
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'case_list' %}active{% endif %}" href="{% url 'cases:case_list' %}">
+                            All Cases
+                        </a>
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'case_create' %}active{% endif %}" href="{% url 'cases:case_create' %}">
+                            New Case
+                        </a>
+                        <a class="phoenix-nav-dropdown-item" href="{% url 'cases:case_list' %}?status=open">
+                            Open Cases
+                        </a>
+                        <a class="phoenix-nav-dropdown-item" href="{% url 'cases:case_list' %}?status=completed">
+                            Completed Cases
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Patients Dropdown -->
+                <div class="phoenix-nav-item phoenix-nav-dropdown">
+                    <a class="phoenix-nav-link phoenix-nav-dropdown-toggle {% if 'patient' in request.path %}active{% endif %}" href="#" data-bs-toggle="collapse" data-bs-target="#patientsMenu">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="users"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Patients</span>
+                    </a>
+                    <div class="phoenix-nav-dropdown-menu collapse {% if 'patient' in request.path %}show{% endif %}" id="patientsMenu">
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'patient_list' %}active{% endif %}" href="{% url 'cases:patient_list' %}">
+                            All Patients
+                        </a>
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'patient_create' %}active{% endif %}" href="{% url 'cases:patient_create' %}">
+                            New Patient
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Categories -->
+                <div class="phoenix-nav-item">
+                    <a class="phoenix-nav-link {% if 'categor' in request.path %}active{% endif %}" href="{% url 'cases:category_list' %}">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="tag"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Categories</span>
+                    </a>
+                </div>
+                
+                <!-- Blog Dropdown -->
+                <div class="phoenix-nav-item phoenix-nav-dropdown">
+                    <a class="phoenix-nav-link phoenix-nav-dropdown-toggle {% if 'blog' in request.path %}active{% endif %}" href="#" data-bs-toggle="collapse" data-bs-target="#blogMenu">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="edit-3"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Blog</span>
+                    </a>
+                    <div class="phoenix-nav-dropdown-menu collapse {% if 'blog' in request.path %}show{% endif %}" id="blogMenu">
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'list' %}active{% endif %}" href="{% url 'blog:list' %}">
+                            View Blog
+                        </a>
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'post_list' %}active{% endif %}" href="{% url 'blog:post_list' %}">
+                            Manage Posts
+                        </a>
+                        <a class="phoenix-nav-dropdown-item {% if request.resolver_match.url_name == 'post_create' %}active{% endif %}" href="{% url 'blog:post_create' %}">
+                            New Post
+                        </a>
+                    </div>
+                </div>
+                
+                {% if user.profile.is_admin or user.is_staff %}
+                <!-- Admin Section -->
+                <div class="mt-4 px-3">
+                    <h6 class="text-uppercase text-muted fw-bold" style="font-size: 0.625rem; letter-spacing: 0.5px;">Management</h6>
+                </div>
+                
+                <div class="phoenix-nav-item">
+                    <a class="phoenix-nav-link {% if 'reports' in request.path %}active{% endif %}" href="{% url 'dashboard:reports' %}">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="bar-chart-2"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Reports</span>
+                    </a>
+                </div>
+                
+                <div class="phoenix-nav-item">
+                    <a class="phoenix-nav-link {% if 'users' in request.path %}active{% endif %}" href="{% url 'dashboard:users' %}">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="user-check"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Users</span>
+                    </a>
+                </div>
+                
+                <div class="phoenix-nav-item">
+                    <a class="phoenix-nav-link" href="/admin/">
+                        <span class="phoenix-nav-link-icon">
+                            <i data-feather="settings"></i>
+                        </span>
+                        <span class="navbar-vertical-label">Admin Panel</span>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Navbar Footer -->
+            <div class="phoenix-navbar-footer p-3 border-top">
+                <button class="phoenix-theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                    <i data-feather="moon" class="theme-icon-dark"></i>
+                    <i data-feather="sun" class="theme-icon-light d-none"></i>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- Main Content Wrapper -->
+        <div class="phoenix-main-content">
+            <!-- Top Navbar -->
+            <nav class="phoenix-navbar-top">
+                <!-- Left Side -->
+                <div class="d-flex align-items-center">
+                    <!-- Toggle Button -->
+                    <button class="btn btn-link text-dark p-0 me-3" onclick="toggleSidebar()">
+                        <i data-feather="menu"></i>
+                    </button>
+                    
+                    <!-- Search -->
+                    <div class="phoenix-search">
+                        <i data-feather="search" class="phoenix-search-icon"></i>
+                        <input type="text" class="phoenix-search-input" placeholder="Search...">
+                    </div>
+                </div>
+                
+                <!-- Right Side -->
+                <div class="d-flex align-items-center ms-auto">
+                    <!-- Notifications -->
+                    <div class="phoenix-notification-icon me-3">
+                        <i data-feather="bell"></i>
+                        <span class="phoenix-notification-badge"></span>
+                    </div>
+                    
+                    <!-- User Menu -->
+                    <div class="dropdown">
+                        <button class="btn btn-link text-dark p-0 d-flex align-items-center" type="button" data-bs-toggle="dropdown">
+                            <img src="https://ui-avatars.com/api/?name={{ user.get_full_name|default:user.username }}&background=3874ff&color=fff" alt="User" class="phoenix-user-avatar">
+                            <span class="phoenix-user-name">{{ user.get_full_name|default:user.username }}</span>
+                            <i data-feather="chevron-down" style="width: 16px; height: 16px;"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'dashboard:profile' %}">
+                                    <i data-feather="user" style="width: 16px; height: 16px;" class="me-2"></i>
+                                    Profile
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'dashboard:settings' %}">
+                                    <i data-feather="settings" style="width: 16px; height: 16px;" class="me-2"></i>
+                                    Settings
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'dashboard:logout' %}">
+                                    <i data-feather="log-out" style="width: 16px; height: 16px;" class="me-2"></i>
+                                    Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Content Area -->
+            <div class="phoenix-content">
+                <!-- Messages -->
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show phoenix-fade-in" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <!-- Page Content -->
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+        {% else %}
+        <!-- Non-authenticated layout -->
+        <div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            {% block full_content %}{% endblock %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Phoenix Theme JS -->
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+        
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const navbar = document.getElementById('navbarVertical');
+            navbar.classList.toggle('collapsed');
+            
+            // Save state to localStorage
+            localStorage.setItem('sidebarCollapsed', navbar.classList.contains('collapsed'));
+        }
+        
+        // Restore sidebar state
+        document.addEventListener('DOMContentLoaded', function() {
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                document.getElementById('navbarVertical').classList.add('collapsed');
+            }
+        });
+        
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-bs-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Toggle icons
+            document.querySelector('.theme-icon-dark').classList.toggle('d-none');
+            document.querySelector('.theme-icon-light').classList.toggle('d-none');
+        }
+        
+        // Restore theme
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            
+            if (savedTheme === 'dark') {
+                document.querySelector('.theme-icon-dark').classList.add('d-none');
+                document.querySelector('.theme-icon-light').classList.remove('d-none');
+            }
+        });
+        
+        // Dropdown menu toggle
+        document.querySelectorAll('.phoenix-nav-dropdown-toggle').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const parent = this.parentElement;
+                parent.classList.toggle('show');
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

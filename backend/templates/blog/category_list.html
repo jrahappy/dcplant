@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Blog Categories - DCPlant{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-tags me-2"></i>Blog Categories</h1>
+    {% if user.is_staff %}
+    <div>
+        <a href="{% url 'blog:post_list' %}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-arrow-left me-1"></i>Back to Posts
+        </a>
+        <a href="{% url 'blog:category_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>New Category
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Slug</th>
+                        <th>Description</th>
+                        <th>Posts</th>
+                        <th>Created</th>
+                        {% if user.is_staff %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category in categories %}
+                    <tr>
+                        <td>
+                            <strong>{{ category.name }}</strong>
+                        </td>
+                        <td>
+                            <code>{{ category.slug }}</code>
+                        </td>
+                        <td>{{ category.description|truncatechars:100 }}</td>
+                        <td>
+                            <a href="{% url 'blog:post_list' %}?category={{ category.id }}" 
+                               class="badge bg-info text-decoration-none">
+                                {{ category.post_count }} posts
+                            </a>
+                        </td>
+                        <td>{{ category.created_at|date:"M d, Y" }}</td>
+                        {% if user.is_staff %}
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'blog:category_edit' category.slug %}" 
+                                   class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if category.post_count == 0 %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="confirmDelete('{{ category.slug }}', '{{ category.name }}')" 
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" disabled
+                                        title="Cannot delete category with posts">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if user.is_staff %}6{% else %}5{% endif %}" 
+                            class="text-center text-muted py-4">
+                            <i class="bi bi-tags" style="font-size: 2rem;"></i>
+                            <p class="mt-2">No categories found</p>
+                            {% if user.is_staff %}
+                            <a href="{% url 'blog:category_create' %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-2"></i>Create First Category
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete the category "<span id="categoryName"></span>"? 
+                This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(slug, name) {
+    document.getElementById('categoryName').textContent = name;
+    const deleteForm = document.getElementById('deleteForm');
+    deleteForm.action = `/blog/admin/category/${slug}/delete/`;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+</script>
+{% endblock %}

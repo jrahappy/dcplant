@@ -1,0 +1,161 @@
+name: Deploy DCPlant
+
+on:
+  push:
+    branches: [ main, production ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DJANGO_SETTINGS_MODULE: core.settings.production
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dcplant_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run tests
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/dcplant_test
+        SECRET_KEY: test-secret-key-for-ci
+        REDIS_URL: redis://localhost:6379/1
+      run: |
+        cd backend
+        python manage.py migrate
+        python manage.py test
+        
+    - name: Run linting
+      run: |
+        pip install flake8
+        flake8 backend --max-line-length=120 --exclude=migrations
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Login to AWS ECR
+      if: github.ref == 'refs/heads/production'
+      uses: aws-actions/amazon-ecr-login@v1
+      env:
+        AWS_REGION: us-east-1
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/dcplant:latest
+          ${{ secrets.DOCKER_USERNAME }}/dcplant:${{ github.sha }}
+        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/dcplant:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/dcplant:buildcache,mode=max
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to staging
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.STAGING_HOST }}
+        username: ${{ secrets.STAGING_USER }}
+        key: ${{ secrets.STAGING_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/dcplant
+          git pull origin main
+          docker-compose pull
+          docker-compose up -d
+          docker-compose exec -T web python manage.py migrate
+          docker-compose restart
+
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production'
+    environment:
+      name: production
+      url: https://dcplant.com
+    
+    steps:
+    - name: Deploy to AWS ECS
+      run: |
+        aws ecs update-service \
+          --cluster dcplant-cluster \
+          --service dcplant-service \
+          --force-new-deployment \
+          --region us-east-1
+          
+    - name: Wait for deployment
+      run: |
+        aws ecs wait services-stable \
+          --cluster dcplant-cluster \
+          --services dcplant-service \
+          --region us-east-1
+          
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: 'DCPlant deployed to production!'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      if: always()

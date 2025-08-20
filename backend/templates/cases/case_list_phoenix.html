@@ -1,0 +1,441 @@
+{% extends 'base_phoenix.html' %}
+{% load static %}
+
+{% block title %}Cases - DCPlant{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="phoenix-page-header">
+    <div>
+        <h1 class="phoenix-page-title">Cases</h1>
+        <nav class="phoenix-breadcrumb">
+            <a href="{% url 'dashboard:home' %}" class="phoenix-breadcrumb-item">Home</a>
+            <span class="phoenix-breadcrumb-separator">/</span>
+            <span class="phoenix-breadcrumb-item">Cases</span>
+        </nav>
+    </div>
+    <div>
+        <button class="btn-phoenix-secondary me-2" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i data-feather="filter" style="width: 16px; height: 16px;" class="me-1"></i>
+            Filter
+        </button>
+        <a href="{% url 'cases:case_create' %}" class="btn-phoenix-primary">
+            <i data-feather="plus" style="width: 16px; height: 16px;" class="me-1"></i>
+            New Case
+        </a>
+    </div>
+</div>
+
+<!-- Search and Filter Bar -->
+<div class="phoenix-card mb-3">
+    <div class="phoenix-card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="phoenix-search">
+                    <i data-feather="search" class="phoenix-search-icon"></i>
+                    <input type="text" class="phoenix-search-input" placeholder="Search cases..." id="searchCases">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select class="phoenix-form-control" id="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="draft">Draft</option>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="phoenix-form-control" id="priorityFilter">
+                    <option value="">All Priority</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="phoenix-form-control" id="categoryFilter">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn-phoenix-secondary w-100" onclick="resetFilters()">
+                    <i data-feather="refresh-cw" style="width: 16px; height: 16px;" class="me-1"></i>
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="phoenix-card">
+            <div class="phoenix-card-body d-flex align-items-center">
+                <div class="rounded-circle bg-primary bg-opacity-10 p-2 me-3">
+                    <i data-feather="folder" style="width: 20px; height: 20px;" class="text-primary"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Total Cases</div>
+                    <div class="fs-5 fw-semibold">{{ cases.count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="phoenix-card">
+            <div class="phoenix-card-body d-flex align-items-center">
+                <div class="rounded-circle bg-success bg-opacity-10 p-2 me-3">
+                    <i data-feather="check-circle" style="width: 20px; height: 20px;" class="text-success"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Completed</div>
+                    <div class="fs-5 fw-semibold">{{ completed_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="phoenix-card">
+            <div class="phoenix-card-body d-flex align-items-center">
+                <div class="rounded-circle bg-warning bg-opacity-10 p-2 me-3">
+                    <i data-feather="clock" style="width: 20px; height: 20px;" class="text-warning"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">In Progress</div>
+                    <div class="fs-5 fw-semibold">{{ in_progress_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="phoenix-card">
+            <div class="phoenix-card-body d-flex align-items-center">
+                <div class="rounded-circle bg-danger bg-opacity-10 p-2 me-3">
+                    <i data-feather="alert-circle" style="width: 20px; height: 20px;" class="text-danger"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Urgent</div>
+                    <div class="fs-5 fw-semibold">{{ urgent_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cases Table -->
+<div class="phoenix-card">
+    <div class="phoenix-card-header">
+        <h5 class="phoenix-card-title">All Cases</h5>
+        <div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-link text-primary" type="button" data-bs-toggle="dropdown">
+                    <i data-feather="more-vertical" style="width: 16px; height: 16px;"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="exportCases('csv')">Export as CSV</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportCases('pdf')">Export as PDF</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" onclick="printCases()">Print</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="phoenix-card-body p-0">
+        <div class="table-responsive">
+            <table class="phoenix-table mb-0">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
+                        <th>Case #</th>
+                        <th>Patient</th>
+                        <th>Category</th>
+                        <th>Assigned To</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in cases %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input case-checkbox" value="{{ case.id }}">
+                        </td>
+                        <td>
+                            <a href="{% url 'cases:case_detail' case.id %}" class="text-primary fw-semibold">
+                                #{{ case.case_number }}
+                            </a>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-2" style="width: 36px; height: 36px; font-size: 0.8rem; font-weight: 600;">
+                                    {{ case.patient.first_name.0|upper }}{{ case.patient.last_name.0|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">{{ case.patient.full_name }}</div>
+                                    <div class="text-muted small">{{ case.patient.email|default:"No email" }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if case.category %}
+                            <span class="phoenix-badge phoenix-badge-primary">
+                                {{ case.category.name }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if case.assigned_to %}
+                            <div class="d-flex align-items-center">
+                                <img src="https://ui-avatars.com/api/?name={{ case.assigned_to.get_full_name|default:case.assigned_to.username }}&background=3874ff&color=fff&size=24" 
+                                     alt="{{ case.assigned_to.get_full_name }}" 
+                                     class="rounded-circle me-2" 
+                                     style="width: 24px; height: 24px;">
+                                <span class="small">{{ case.assigned_to.get_full_name|default:case.assigned_to.username }}</span>
+                            </div>
+                            {% else %}
+                            <span class="text-muted small">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if case.status == 'draft' %}
+                                <span class="phoenix-badge" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;">Draft</span>
+                            {% elif case.status == 'open' %}
+                                <span class="phoenix-badge phoenix-badge-primary">Open</span>
+                            {% elif case.status == 'in_progress' %}
+                                <span class="phoenix-badge phoenix-badge-warning">In Progress</span>
+                            {% elif case.status == 'review' %}
+                                <span class="phoenix-badge" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">Review</span>
+                            {% elif case.status == 'completed' %}
+                                <span class="phoenix-badge phoenix-badge-success">Completed</span>
+                            {% elif case.status == 'cancelled' %}
+                                <span class="phoenix-badge phoenix-badge-danger">Cancelled</span>
+                            {% else %}
+                                <span class="phoenix-badge">{{ case.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if case.priority == 'urgent' %}
+                                <span class="d-flex align-items-center text-danger fw-semibold">
+                                    <i data-feather="alert-triangle" style="width: 14px; height: 14px;" class="me-1"></i>
+                                    Urgent
+                                </span>
+                            {% elif case.priority == 'high' %}
+                                <span class="d-flex align-items-center text-warning fw-semibold">
+                                    <i data-feather="arrow-up" style="width: 14px; height: 14px;" class="me-1"></i>
+                                    High
+                                </span>
+                            {% elif case.priority == 'medium' %}
+                                <span class="d-flex align-items-center text-info">
+                                    <i data-feather="minus" style="width: 14px; height: 14px;" class="me-1"></i>
+                                    Medium
+                                </span>
+                            {% else %}
+                                <span class="d-flex align-items-center text-muted">
+                                    <i data-feather="arrow-down" style="width: 14px; height: 14px;" class="me-1"></i>
+                                    Low
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="small">{{ case.created_at|date:"M d, Y" }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ case.created_at|date:"g:i A" }}</div>
+                        </td>
+                        <td>
+                            <div class="small">{{ case.updated_at|date:"M d, Y" }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ case.updated_at|timesince }} ago</div>
+                        </td>
+                        <td class="text-center">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-primary p-0" type="button" data-bs-toggle="dropdown">
+                                    <i data-feather="more-horizontal" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'cases:case_detail' case.id %}">
+                                            <i data-feather="eye" style="width: 14px; height: 14px;" class="me-2"></i>
+                                            View Details
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'cases:case_update' case.id %}">
+                                            <i data-feather="edit-2" style="width: 14px; height: 14px;" class="me-2"></i>
+                                            Edit Case
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'cases:image_upload' case.id %}">
+                                            <i data-feather="image" style="width: 14px; height: 14px;" class="me-2"></i>
+                                            Add Images
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="duplicateCase({{ case.id }})">
+                                            <i data-feather="copy" style="width: 14px; height: 14px;" class="me-2"></i>
+                                            Duplicate
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="archiveCase({{ case.id }})">
+                                            <i data-feather="archive" style="width: 14px; height: 14px;" class="me-2"></i>
+                                            Archive
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="#" onclick="deleteCase({{ case.id }})">
+                                            <i data-feather="trash-2" style="width: 14px; height: 14px;" class="me-2"></i>
+                                            Delete
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center py-5">
+                            <div class="text-muted">
+                                <i data-feather="folder-x" style="width: 48px; height: 48px;" class="mb-3"></i>
+                                <h5>No cases found</h5>
+                                <p>Create your first case to get started</p>
+                                <a href="{% url 'cases:case_create' %}" class="btn-phoenix-primary mt-2">
+                                    <i data-feather="plus" style="width: 16px; height: 16px;" class="me-1"></i>
+                                    Create New Case
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if cases %}
+        <!-- Pagination -->
+        <div class="d-flex justify-content-between align-items-center p-3 border-top">
+            <div class="text-muted small">
+                Showing <span class="fw-semibold">1-10</span> of <span class="fw-semibold">{{ cases.count }}</span> results
+            </div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" tabindex="-1">
+                            <i data-feather="chevron-left" style="width: 14px; height: 14px;"></i>
+                        </a>
+                    </li>
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">
+                            <i data-feather="chevron-right" style="width: 14px; height: 14px;"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Advanced Filters</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Date Range</label>
+                        <div class="row g-2">
+                            <div class="col">
+                                <input type="date" class="phoenix-form-control" placeholder="From">
+                            </div>
+                            <div class="col">
+                                <input type="date" class="phoenix-form-control" placeholder="To">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Assigned To</label>
+                        <select class="phoenix-form-control">
+                            <option>All Users</option>
+                            <option>Me</option>
+                            <option>Unassigned</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="phoenix-form-label">Tags</label>
+                        <input type="text" class="phoenix-form-control" placeholder="Enter tags...">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-phoenix-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn-phoenix-primary">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize Feather Icons
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+        
+        // Select all checkbox
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.case-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+    });
+    
+    function resetFilters() {
+        document.getElementById('searchCases').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('priorityFilter').value = '';
+        document.getElementById('categoryFilter').value = '';
+    }
+    
+    function exportCases(format) {
+        console.log('Exporting cases as', format);
+    }
+    
+    function printCases() {
+        window.print();
+    }
+    
+    function duplicateCase(id) {
+        console.log('Duplicating case', id);
+    }
+    
+    function archiveCase(id) {
+        console.log('Archiving case', id);
+    }
+    
+    function deleteCase(id) {
+        if (confirm('Are you sure you want to delete this case?')) {
+            console.log('Deleting case', id);
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ patient.full_name }} - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Patient Header -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">
+                        <i class="bi bi-person-circle me-2"></i>{{ patient.full_name }}
+                    </h3>
+                    <div>
+                        <a href="{% url 'cases:patient_update' patient.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a href="{% url 'cases:case_create' %}?patient={{ patient.pk }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-circle"></i> New Case
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Personal Information</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">MRN:</dt>
+                            <dd class="col-sm-8">{{ patient.mrn }}</dd>
+                            
+                            <dt class="col-sm-4">Date of Birth:</dt>
+                            <dd class="col-sm-8">{{ patient.date_of_birth|date:"M d, Y" }}</dd>
+                            
+                            <dt class="col-sm-4">Age:</dt>
+                            <dd class="col-sm-8">{{ patient.age }} years</dd>
+                            
+                            <dt class="col-sm-4">Gender:</dt>
+                            <dd class="col-sm-8">{{ patient.get_gender_display }}</dd>
+                        </dl>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>Contact Information</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Email:</dt>
+                            <dd class="col-sm-8">{{ patient.email|default:"-" }}</dd>
+                            
+                            <dt class="col-sm-4">Phone:</dt>
+                            <dd class="col-sm-8">{{ patient.phone|default:"-" }}</dd>
+                            
+                            <dt class="col-sm-4">Address:</dt>
+                            <dd class="col-sm-8">{{ patient.address|linebreaks|default:"-" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Medical Information</h5>
+                        
+                        <div class="mb-3">
+                            <label class="text-muted small">Medical History</label>
+                            <p>{{ patient.medical_history|linebreaks|default:"<em class='text-muted'>No medical history recorded</em>" }}</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="text-muted small">Allergies</label>
+                            <p>{{ patient.allergies|linebreaks|default:"<em class='text-muted'>No allergies recorded</em>" }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>Insurance & Consent</h5>
+                        
+                        <div class="mb-3">
+                            <label class="text-muted small">Insurance Information</label>
+                            <p>{{ patient.insurance_info|linebreaks|default:"<em class='text-muted'>No insurance information</em>" }}</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="text-muted small">Consent Status</label>
+                            <p>
+                                {% if patient.consent_given %}
+                                    <span class="badge bg-success">Consent Given</span>
+                                    {% if patient.consent_date %}
+                                        <small class="text-muted">on {{ patient.consent_date|date:"M d, Y" }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-warning">No Consent</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Patient Cases -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Cases ({{ cases.count }})</h5>
+                    <a href="{% url 'cases:case_create' %}?patient={{ patient.pk }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-circle"></i> New Case
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if cases %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Case #</th>
+                                <th>Chief Complaint</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for case in cases %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'cases:case_detail' case.pk %}">
+                                        {{ case.case_number }}
+                                    </a>
+                                </td>
+                                <td>{{ case.chief_complaint|truncatechars:50 }}</td>
+                                <td>
+                                    {% if case.category %}
+                                        <span class="badge bg-info">{{ case.category.name }}</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ case.status|lower }}">
+                                        {{ case.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="priority-{{ case.priority|lower }}">
+                                        <i class="bi bi-flag-fill"></i> {{ case.get_priority_display }}
+                                    </span>
+                                </td>
+                                <td>{{ case.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'cases:case_detail' case.pk %}" 
+                                           class="btn btn-sm btn-outline-primary" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'cases:case_update' case.pk %}" 
+                                           class="btn btn-sm btn-outline-secondary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">
+                    <i class="bi bi-folder2-open" style="font-size: 2rem;"></i><br>
+                    No cases found for this patient
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Quick Stats -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total Cases:</span>
+                    <strong>{{ total_cases }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Active Cases:</span>
+                    <strong>{{ active_cases }}</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Completed Cases:</span>
+                    <strong>{{ completed_cases }}</strong>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Patient Timeline -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Patient Timeline</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <strong>Patient Created</strong>
+                        <p class="mb-0">{{ patient.created_at|date:"M d, Y" }}</p>
+                        <small class="text-muted">by {{ patient.created_by.get_full_name|default:patient.created_by.username }}</small>
+                    </div>
+                    
+                    {% if patient.consent_date %}
+                    <div class="timeline-item">
+                        <strong>Consent Given</strong>
+                        <p class="mb-0">{{ patient.consent_date|date:"M d, Y" }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% for case in cases|slice:":3" %}
+                    <div class="timeline-item">
+                        <strong>Case Created</strong>
+                        <p class="mb-0">
+                            <a href="{% url 'cases:case_detail' case.pk %}">
+                                {{ case.case_number }}
+                            </a>
+                        </p>
+                        <small class="text-muted">{{ case.created_at|date:"M d, Y" }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline:before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item:before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #007bff;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #e9ecef;
+}
+</style>
+{% endblock %}

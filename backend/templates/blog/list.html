@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Blog - DCPlant{% endblock %}
+
+{% block extra_css %}
+<style>
+    .blog-card {
+        transition: transform 0.2s;
+        height: 100%;
+    }
+    .blog-card:hover {
+        transform: translateY(-5px);
+    }
+    .blog-image {
+        height: 200px;
+        object-fit: cover;
+    }
+    .category-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1;
+    }
+    .blog-meta {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .featured-post {
+        border-left: 4px solid #007bff;
+    }
+    .excerpt {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h1 class="display-4">Dental Health Blog</h1>
+            <p class="lead text-muted">Expert insights, tips, and news about dental health and oral care</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            {% if user.is_staff %}
+            <a href="{% url 'blog:post_list' %}" class="btn btn-outline-primary">
+                <i class="bi bi-gear"></i> Manage Blog
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Category Filter -->
+    {% if categories %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'blog:list' %}" 
+                   class="btn btn-sm {% if not selected_category %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    All Posts
+                </a>
+                {% for category in categories %}
+                <a href="?category={{ category.slug }}" 
+                   class="btn btn-sm {% if selected_category == category %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    {{ category.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Featured Posts -->
+    {% if featured_posts %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="h4 mb-3">Featured Posts</h2>
+            <div class="row">
+                {% for post in featured_posts %}
+                <div class="col-md-6 mb-4">
+                    <div class="card featured-post blog-card">
+                        {% if post.featured_image %}
+                        <div class="position-relative">
+                            <img src="{{ post.featured_image.url }}" class="card-img-top blog-image" alt="{{ post.title }}">
+                            {% if post.category %}
+                            <span class="badge bg-info category-badge">{{ post.category.name }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'blog:detail' post.slug %}" class="text-decoration-none text-dark">
+                                    {{ post.title }}
+                                </a>
+                            </h5>
+                            <div class="blog-meta mb-2">
+                                <span class="me-3">
+                                    <i class="bi bi-person"></i> {{ post.author.get_full_name|default:post.author.username }}
+                                </span>
+                                <span>
+                                    <i class="bi bi-calendar3"></i> {{ post.published_at|date:"M d, Y" }}
+                                </span>
+                            </div>
+                            <p class="card-text excerpt">{{ post.excerpt }}</p>
+                            <a href="{% url 'blog:detail' post.slug %}" class="btn btn-sm btn-primary">
+                                Read More <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Posts -->
+    <div class="row">
+        <div class="col-lg-8">
+            <h2 class="h4 mb-3">{{ page_title|default:"Recent Posts" }}</h2>
+            
+            {% if posts %}
+            <div class="row">
+                {% for post in posts %}
+                <div class="col-md-6 mb-4">
+                    <div class="card blog-card">
+                        {% if post.featured_image %}
+                        <div class="position-relative">
+                            <img src="{{ post.featured_image.url }}" class="card-img-top blog-image" alt="{{ post.title }}">
+                            {% if post.category %}
+                            <span class="badge bg-info category-badge">{{ post.category.name }}</span>
+                            {% endif %}
+                        </div>
+                        {% elif post.category %}
+                        <div class="card-header bg-light">
+                            <span class="badge bg-info">{{ post.category.name }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'blog:detail' post.slug %}" class="text-decoration-none text-dark">
+                                    {{ post.title }}
+                                </a>
+                            </h5>
+                            
+                            <div class="blog-meta mb-2">
+                                <small>
+                                    <span class="me-2">
+                                        <i class="bi bi-person"></i> {{ post.author.get_full_name|default:post.author.username }}
+                                    </span>
+                                    <span>
+                                        <i class="bi bi-calendar3"></i> {{ post.published_at|date:"M d, Y" }}
+                                    </span>
+                                </small>
+                            </div>
+                            
+                            <p class="card-text excerpt">{{ post.excerpt }}</p>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'blog:detail' post.slug %}" class="btn btn-sm btn-outline-primary">
+                                    Read More
+                                </a>
+                                <div class="blog-meta">
+                                    <small>
+                                        <span class="me-2"><i class="bi bi-eye"></i> {{ post.views_count }}</span>
+                                        <span><i class="bi bi-chat"></i> {{ post.comments.count }}</span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Blog pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">First</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">Previous</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">Next</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">Last</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No blog posts available at the moment.
+                {% if user.is_staff %}
+                <a href="{% url 'blog:post_create' %}" class="alert-link">Create the first post</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Search Widget -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Search</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'blog:list' %}">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control" placeholder="Search posts..." 
+                                   value="{{ request.GET.q }}">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Categories Widget -->
+            {% if categories %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Categories</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for category in categories %}
+                        <li class="mb-2">
+                            <a href="?category={{ category.slug }}" class="text-decoration-none">
+                                <i class="bi bi-folder"></i> {{ category.name }}
+                                <span class="badge bg-secondary float-end">{{ category.posts.count }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Popular Posts Widget -->
+            {% if popular_posts %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Popular Posts</h5>
+                </div>
+                <div class="card-body">
+                    {% for post in popular_posts %}
+                    <div class="mb-3">
+                        <h6 class="mb-1">
+                            <a href="{% url 'blog:detail' post.slug %}" class="text-decoration-none">
+                                {{ post.title|truncatechars:50 }}
+                            </a>
+                        </h6>
+                        <small class="text-muted">
+                            <i class="bi bi-eye"></i> {{ post.views_count }} views
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Tags Widget -->
+            {% if all_tags %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Popular Tags</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for tag in all_tags %}
+                        <a href="?tag={{ tag }}" class="badge bg-secondary text-decoration-none">
+                            {{ tag }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

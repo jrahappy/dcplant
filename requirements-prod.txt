@@ -1,0 +1,3 @@
+-r requirements-base.txt
+
+sentry-sdk==1.39.2

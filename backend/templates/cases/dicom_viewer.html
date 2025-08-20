@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}DICOM Viewer - {{ image.title }} - DCPlant{% endblock %}
+
+{% block extra_css %}
+<style>
+    #dicomImage {
+        width: 100%;
+        height: 600px;
+        background-color: black;
+        position: relative;
+    }
+    
+    .viewer-controls {
+        background: #2c3e50;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+    }
+    
+    .viewer-controls .btn {
+        margin: 0 5px;
+    }
+    
+    .viewer-info {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        font-size: 0.9rem;
+    }
+    
+    .viewer-info dt {
+        font-weight: 600;
+    }
+    
+    .tool-active {
+        background-color: #007bff !important;
+        color: white !important;
+    }
+    
+    #loadingIndicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 1.2rem;
+        z-index: 1000;
+    }
+    
+    .measurement-info {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' image.case.pk %}">{{ image.case.case_number }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'cases:image_list' image.case.pk %}">Images</a></li>
+                    <li class="breadcrumb-item active">DICOM Viewer</li>
+                </ol>
+            </nav>
+            <h2>DICOM Viewer: {{ image.title }}</h2>
+        </div>
+        <div>
+            <a href="{% url 'cases:image_list' image.case.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Back to Images
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Viewer Column -->
+        <div class="col-lg-9">
+            <!-- Viewer Controls -->
+            <div class="viewer-controls">
+                <div class="btn-toolbar" role="toolbar">
+                    <!-- Window/Level Tools -->
+                    <div class="btn-group me-2" role="group">
+                        <button id="wwwcTool" class="btn btn-sm btn-secondary tool-btn" title="Window/Level">
+                            <i class="bi bi-brightness-high"></i> W/L
+                        </button>
+                        <button id="panTool" class="btn btn-sm btn-secondary tool-btn" title="Pan">
+                            <i class="bi bi-arrows-move"></i> Pan
+                        </button>
+                        <button id="zoomTool" class="btn btn-sm btn-secondary tool-btn" title="Zoom">
+                            <i class="bi bi-zoom-in"></i> Zoom
+                        </button>
+                    </div>
+
+                    <!-- Measurement Tools -->
+                    <div class="btn-group me-2" role="group">
+                        <button id="lengthTool" class="btn btn-sm btn-secondary tool-btn" title="Length Measurement">
+                            <i class="bi bi-rulers"></i> Length
+                        </button>
+                        <button id="angleTool" class="btn btn-sm btn-secondary tool-btn" title="Angle Measurement">
+                            <i class="bi bi-triangle"></i> Angle
+                        </button>
+                        <button id="probeTool" class="btn btn-sm btn-secondary tool-btn" title="Pixel Probe">
+                            <i class="bi bi-crosshair"></i> Probe
+                        </button>
+                    </div>
+
+                    <!-- Image Manipulation -->
+                    <div class="btn-group me-2" role="group">
+                        <button id="invertTool" class="btn btn-sm btn-secondary" title="Invert">
+                            <i class="bi bi-circle-half"></i> Invert
+                        </button>
+                        <button id="rotateTool" class="btn btn-sm btn-secondary" title="Rotate">
+                            <i class="bi bi-arrow-clockwise"></i> Rotate
+                        </button>
+                        <button id="flipHTool" class="btn btn-sm btn-secondary" title="Flip Horizontal">
+                            <i class="bi bi-symmetry-horizontal"></i> Flip H
+                        </button>
+                        <button id="flipVTool" class="btn btn-sm btn-secondary" title="Flip Vertical">
+                            <i class="bi bi-symmetry-vertical"></i> Flip V
+                        </button>
+                    </div>
+
+                    <!-- Reset/Clear -->
+                    <div class="btn-group" role="group">
+                        <button id="resetTool" class="btn btn-sm btn-warning" title="Reset View">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                        <button id="clearTool" class="btn btn-sm btn-danger" title="Clear Measurements">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DICOM Viewer Canvas -->
+            <div class="position-relative">
+                <div id="dicomImage">
+                    <div id="loadingIndicator">
+                        <div class="spinner-border text-light" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading DICOM image...</p>
+                    </div>
+                </div>
+                <div class="measurement-info" style="display: none;">
+                    <div id="measurementData"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Column -->
+        <div class="col-lg-3">
+            <!-- Image Information -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Image Information</h5>
+                </div>
+                <div class="card-body viewer-info">
+                    <dl class="mb-0">
+                        <dt>Patient:</dt>
+                        <dd>{{ image.case.patient.full_name }}</dd>
+                        
+                        <dt>Case Number:</dt>
+                        <dd>{{ image.case.case_number }}</dd>
+                        
+                        <dt>Image Type:</dt>
+                        <dd>{{ image.get_image_type_display }}</dd>
+                        
+                        {% if image.taken_date %}
+                        <dt>Taken Date:</dt>
+                        <dd>{{ image.taken_date|date:"M d, Y" }}</dd>
+                        {% endif %}
+                        
+                        <dt>Uploaded By:</dt>
+                        <dd>{{ image.uploaded_by.get_full_name|default:image.uploaded_by.username }}</dd>
+                        
+                        <dt>Upload Date:</dt>
+                        <dd>{{ image.created_at|date:"M d, Y H:i" }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- DICOM Metadata -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">DICOM Metadata</h5>
+                </div>
+                <div class="card-body viewer-info">
+                    <dl id="dicomMetadata" class="mb-0">
+                        <dd class="text-muted">Loading metadata...</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <a href="{{ image.image.url }}" download class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-download"></i> Download DICOM
+                    </a>
+                    {% if user == image.uploaded_by or user.profile.is_admin or user.is_staff %}
+                    <a href="{% url 'cases:image_edit' image.pk %}" class="btn btn-secondary w-100">
+                        <i class="bi bi-pencil"></i> Edit Details
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Cornerstone.js and dependencies -->
+<script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+<script src="https://unpkg.com/cornerstone-math@0.1.10/dist/cornerstoneMath.min.js"></script>
+<script src="https://unpkg.com/cornerstone-tools@6.0.0/dist/cornerstoneTools.min.js"></script>
+<script src="https://unpkg.com/cornerstone-wado-image-loader@4.1.5/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+<script src="https://unpkg.com/dicom-parser@1.8.13/dist/dicomParser.min.js"></script>
+
+<script>
+// Configure Cornerstone
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+cornerstoneTools.external.cornerstone = cornerstone;
+cornerstoneTools.external.Hammer = Hammer;
+cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+
+// Initialize
+cornerstoneTools.init();
+
+const element = document.getElementById('dicomImage');
+cornerstone.enable(element);
+
+// Load and display the DICOM image
+const imageId = 'wadouri:{{ image.image.url }}';
+
+cornerstone.loadImage(imageId).then(function(image) {
+    // Hide loading indicator
+    document.getElementById('loadingIndicator').style.display = 'none';
+    
+    // Display the image
+    cornerstone.displayImage(element, image);
+    
+    // Set up default tool
+    cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
+    cornerstoneTools.addTool(cornerstoneTools.PanTool);
+    cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+    cornerstoneTools.addTool(cornerstoneTools.LengthTool);
+    cornerstoneTools.addTool(cornerstoneTools.AngleTool);
+    cornerstoneTools.addTool(cornerstoneTools.ProbeTool);
+    
+    // Set the default tool
+    cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 1 });
+    document.getElementById('wwwcTool').classList.add('tool-active');
+    
+    // Display metadata
+    displayMetadata(image);
+}).catch(function(error) {
+    console.error('Error loading DICOM:', error);
+    document.getElementById('loadingIndicator').innerHTML = 
+        '<div class="alert alert-danger">Error loading DICOM file. Please ensure it is a valid DICOM image.</div>';
+});
+
+// Tool button handlers
+document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Remove active class from all tool buttons
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('tool-active'));
+        // Add active class to clicked button
+        this.classList.add('tool-active');
+        
+        // Deactivate all tools
+        cornerstoneTools.setToolPassive('Wwwc');
+        cornerstoneTools.setToolPassive('Pan');
+        cornerstoneTools.setToolPassive('Zoom');
+        cornerstoneTools.setToolPassive('Length');
+        cornerstoneTools.setToolPassive('Angle');
+        cornerstoneTools.setToolPassive('Probe');
+        
+        // Activate selected tool
+        switch(this.id) {
+            case 'wwwcTool':
+                cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 1 });
+                break;
+            case 'panTool':
+                cornerstoneTools.setToolActive('Pan', { mouseButtonMask: 1 });
+                break;
+            case 'zoomTool':
+                cornerstoneTools.setToolActive('Zoom', { mouseButtonMask: 1 });
+                break;
+            case 'lengthTool':
+                cornerstoneTools.setToolActive('Length', { mouseButtonMask: 1 });
+                document.querySelector('.measurement-info').style.display = 'block';
+                break;
+            case 'angleTool':
+                cornerstoneTools.setToolActive('Angle', { mouseButtonMask: 1 });
+                document.querySelector('.measurement-info').style.display = 'block';
+                break;
+            case 'probeTool':
+                cornerstoneTools.setToolActive('Probe', { mouseButtonMask: 1 });
+                break;
+        }
+    });
+});
+
+// Invert tool
+document.getElementById('invertTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.invert = !viewport.invert;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Rotate tool
+document.getElementById('rotateTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.rotation += 90;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Flip Horizontal tool
+document.getElementById('flipHTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.hflip = !viewport.hflip;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Flip Vertical tool
+document.getElementById('flipVTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.vflip = !viewport.vflip;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Reset tool
+document.getElementById('resetTool').addEventListener('click', function() {
+    cornerstone.reset(element);
+});
+
+// Clear measurements tool
+document.getElementById('clearTool').addEventListener('click', function() {
+    const toolStateManager = cornerstoneTools.globalImageIdSpecificToolStateManager;
+    toolStateManager.clear(element);
+    cornerstone.updateImage(element);
+    document.querySelector('.measurement-info').style.display = 'none';
+});
+
+// Display DICOM metadata
+function displayMetadata(image) {
+    const metadata = cornerstoneWADOImageLoader.metaData.get('imagePlaneModule', imageId) || {};
+    const patientModule = cornerstoneWADOImageLoader.metaData.get('patientModule', imageId) || {};
+    const studyModule = cornerstoneWADOImageLoader.metaData.get('generalStudyModule', imageId) || {};
+    
+    let metadataHtml = '';
+    
+    if (image.width && image.height) {
+        metadataHtml += `<dt>Dimensions:</dt><dd>${image.width} x ${image.height}</dd>`;
+    }
+    
+    if (metadata.pixelSpacing) {
+        metadataHtml += `<dt>Pixel Spacing:</dt><dd>${metadata.pixelSpacing[0].toFixed(2)} x ${metadata.pixelSpacing[1].toFixed(2)} mm</dd>`;
+    }
+    
+    if (metadata.sliceThickness) {
+        metadataHtml += `<dt>Slice Thickness:</dt><dd>${metadata.sliceThickness} mm</dd>`;
+    }
+    
+    if (patientModule.patientName) {
+        metadataHtml += `<dt>Patient Name:</dt><dd>${patientModule.patientName}</dd>`;
+    }
+    
+    if (studyModule.studyDate) {
+        metadataHtml += `<dt>Study Date:</dt><dd>${studyModule.studyDate}</dd>`;
+    }
+    
+    if (studyModule.studyDescription) {
+        metadataHtml += `<dt>Study:</dt><dd>${studyModule.studyDescription}</dd>`;
+    }
+    
+    document.getElementById('dicomMetadata').innerHTML = metadataHtml || '<dd class="text-muted">No metadata available</dd>';
+}
+
+// Handle measurement updates
+element.addEventListener('cornerstonetoolsmeasurementadded', function(e) {
+    updateMeasurementDisplay();
+});
+
+element.addEventListener('cornerstonetoolsmeasurementmodified', function(e) {
+    updateMeasurementDisplay();
+});
+
+function updateMeasurementDisplay() {
+    const toolState = cornerstoneTools.globalImageIdSpecificToolStateManager.saveToolState();
+    let measurementText = '';
+    
+    // Check for length measurements
+    if (toolState[imageId] && toolState[imageId].length && toolState[imageId].length.data.length > 0) {
+        measurementText += '<strong>Length Measurements:</strong><br>';
+        toolState[imageId].length.data.forEach((measurement, index) => {
+            measurementText += `${index + 1}: ${measurement.length.toFixed(2)} mm<br>`;
+        });
+    }
+    
+    // Check for angle measurements
+    if (toolState[imageId] && toolState[imageId].angle && toolState[imageId].angle.data.length > 0) {
+        measurementText += '<strong>Angle Measurements:</strong><br>';
+        toolState[imageId].angle.data.forEach((measurement, index) => {
+            measurementText += `${index + 1}: ${measurement.angle.toFixed(1)}°<br>`;
+        });
+    }
+    
+    if (measurementText) {
+        document.getElementById('measurementData').innerHTML = measurementText;
+        document.querySelector('.measurement-info').style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

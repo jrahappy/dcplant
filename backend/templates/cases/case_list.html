@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cases - DCPlant{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Cases</h1>
+    <div>
+        <a href="{% url 'cases:patient_create' %}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-person-plus me-1"></i>New Patient
+        </a>
+        <a href="{% url 'cases:case_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>New Case
+        </a>
+    </div>
+</div>
+
+<!-- Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                {{ filter_form.search }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.status }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.priority }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.category }}
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Cases Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Cases ({{ total_count }})</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Case #</th>
+                        <th>Patient</th>
+                        <th>Chief Complaint</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Assigned To</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in page_obj %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'cases:case_detail' case.pk %}">
+                                {{ case.case_number }}
+                            </a>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="patient-avatar me-2">
+                                    {{ case.patient.first_name.0 }}{{ case.patient.last_name.0 }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'cases:patient_detail' case.patient.pk %}">
+                                        {{ case.patient.full_name }}
+                                    </a>
+                                    <small class="d-block text-muted">MRN: {{ case.patient.mrn }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ case.chief_complaint|truncatechars:50 }}</td>
+                        <td>
+                            {% if case.category %}
+                                <span class="badge bg-info">{{ case.category.name }}</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge badge-{{ case.status|lower }}">
+                                {{ case.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="priority-{{ case.priority|lower }}">
+                                <i class="bi bi-flag-fill"></i> {{ case.get_priority_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if case.assigned_to %}
+                                {{ case.assigned_to.get_full_name|default:case.assigned_to.username }}
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ case.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'cases:case_detail' case.pk %}" 
+                                   class="btn btn-sm btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if user == case.created_by or user.profile.is_admin or user.is_staff %}
+                                <a href="{% url 'cases:case_update' case.pk %}" 
+                                   class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="confirmDelete({{ case.pk }})" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <p class="mt-2">No cases found</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this case? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(caseId) {
+    const deleteForm = document.getElementById('deleteForm');
+    deleteForm.action = `/cases/case/${caseId}/delete/`;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+</script>
+{% endblock %}

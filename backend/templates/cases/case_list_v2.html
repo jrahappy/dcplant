@@ -1,0 +1,377 @@
+{% extends 'base_phoenix_v2.html' %}
+{% load static %}
+
+{% block title %}Cases - DCPlant{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="phoenix-page-header">
+    <nav class="phoenix-breadcrumb">
+        <a href="{% url 'dashboard:home' %}" class="phoenix-breadcrumb-item">Page 1</a>
+        <span class="phoenix-breadcrumb-separator">›</span>
+        <a href="{% url 'dashboard:home' %}" class="phoenix-breadcrumb-item">Page 2</a>
+        <span class="phoenix-breadcrumb-separator">›</span>
+        <span class="phoenix-breadcrumb-item">Default</span>
+    </nav>
+    
+    <div class="phoenix-page-title">
+        <h1>Cases <span style="color: var(--phoenix-gray-500); font-weight: 400;">({{ cases.count|default:"32" }})</span></h1>
+        <button class="btn-phoenix btn-phoenix-primary">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 4V12M4 8H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add new case
+        </button>
+    </div>
+</div>
+
+<!-- Filter Pills -->
+<div class="filter-pills mb-3">
+    <button class="filter-pill active" onclick="filterCases('all')">
+        All<span class="filter-pill-count">(32)</span>
+    </button>
+    <button class="filter-pill" onclick="filterCases('ongoing')">
+        Ongoing<span class="filter-pill-count">(14)</span>
+    </button>
+    <button class="filter-pill" onclick="filterCases('cancelled')">
+        Cancelled<span class="filter-pill-count">(2)</span>
+    </button>
+    <button class="filter-pill" onclick="filterCases('finished')">
+        Finished<span class="filter-pill-count">(14)</span>
+    </button>
+    <button class="filter-pill" onclick="filterCases('postponed')">
+        Postponed<span class="filter-pill-count">(2)</span>
+    </button>
+</div>
+
+<!-- Search Bar -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div style="position: relative; width: 300px;">
+        <svg style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--phoenix-gray-500);" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M11 11L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input type="text" class="phoenix-search-input" placeholder="Search cases" style="padding-left: 36px;">
+    </div>
+    
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm" style="padding: 6px 8px; border: 1px solid var(--phoenix-border-color); background: white; border-radius: 4px;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="3" y="3" width="6" height="6" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="11" y="3" width="6" height="6" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="3" y="11" width="6" height="6" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="11" y="11" width="6" height="6" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+        </button>
+        <button class="btn btn-sm" style="padding: 6px 8px; border: 1px solid var(--phoenix-border-color); background: white; border-radius: 4px;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="3" y="4" width="14" height="2" fill="currentColor" opacity="0.3"/>
+                <rect x="3" y="9" width="14" height="2" fill="currentColor"/>
+                <rect x="3" y="14" width="14" height="2" fill="currentColor" opacity="0.3"/>
+            </svg>
+        </button>
+        <button class="btn btn-sm active" style="padding: 6px 8px; border: 1px solid var(--phoenix-primary); background: var(--phoenix-primary); color: white; border-radius: 4px;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="3" y="3" width="14" height="3" fill="currentColor"/>
+                <rect x="3" y="8" width="14" height="3" fill="currentColor"/>
+                <rect x="3" y="13" width="14" height="3" fill="currentColor"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<!-- Cases Table -->
+<div class="phoenix-card">
+    <div class="phoenix-card-body p-0">
+        <table class="phoenix-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">CASE NAME <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 15%;">ASSIGNEES <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 12%;">START DATE <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 12%;">DEADLINE <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 8%;">TASK <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 15%;">PROGRESS <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 10%;">STATUS <span style="color: var(--phoenix-gray-400);">↕</span></th>
+                    <th style="width: 5%;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Case 1 -->
+                <tr>
+                    <td>
+                        <div class="project-name-cell">
+                            <a href="#" class="project-name">Patient Doughnut Dungeon</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="assignees-group">
+                            <img src="https://ui-avatars.com/api/?name=John+Doe&background=667eea&color=fff&size=28" class="assignee-avatar" alt="JD">
+                            <img src="https://ui-avatars.com/api/?name=Sarah+Smith&background=f59e0b&color=fff&size=28" class="assignee-avatar" alt="SS">
+                            <img src="https://ui-avatars.com/api/?name=Mike+Johnson&background=10b981&color=fff&size=28" class="assignee-avatar" alt="MJ">
+                            <div class="assignee-count">+2</div>
+                        </div>
+                    </td>
+                    <td>Nov 17, 2020</td>
+                    <td>May 21, 2028</td>
+                    <td>287</td>
+                    <td>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 90%;"></div>
+                            </div>
+                            <span class="progress-text">145 / 145</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-completed">COMPLETED</span>
+                    </td>
+                    <td>
+                        <button class="action-dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="8" cy="3" r="1.5"/>
+                                <circle cx="8" cy="8" r="1.5"/>
+                                <circle cx="8" cy="13" r="1.5"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                
+                <!-- Case 2 -->
+                <tr>
+                    <td>
+                        <div class="project-name-cell">
+                            <a href="#" class="project-name">Water resistant mosquito killer gun</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="assignees-group">
+                            <img src="https://ui-avatars.com/api/?name=Emma+Wilson&background=ec4899&color=fff&size=28" class="assignee-avatar" alt="EW">
+                            <img src="https://ui-avatars.com/api/?name=Robert+Brown&background=8b5cf6&color=fff&size=28" class="assignee-avatar" alt="RB">
+                        </div>
+                    </td>
+                    <td>Mar 08, 2021</td>
+                    <td>Sep 15, 2022</td>
+                    <td>125</td>
+                    <td>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 70%; background: var(--phoenix-warning);"></div>
+                            </div>
+                            <span class="progress-text">148 / 223</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-inactive">INACTIVE</span>
+                    </td>
+                    <td>
+                        <button class="action-dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="8" cy="3" r="1.5"/>
+                                <circle cx="8" cy="8" r="1.5"/>
+                                <circle cx="8" cy="13" r="1.5"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                
+                <!-- Case 3 -->
+                <tr>
+                    <td>
+                        <div class="project-name-cell">
+                            <a href="#" class="project-name">Execution of Micky the foul mouse</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="assignees-group">
+                            <img src="https://ui-avatars.com/api/?name=David+Lee&background=3b82f6&color=fff&size=28" class="assignee-avatar" alt="DL">
+                            <img src="https://ui-avatars.com/api/?name=Lisa+Chen&background=ef4444&color=fff&size=28" class="assignee-avatar" alt="LC">
+                            <img src="https://ui-avatars.com/api/?name=Tom+Anderson&background=22c55e&color=fff&size=28" class="assignee-avatar" alt="TA">
+                        </div>
+                    </td>
+                    <td>Nov 17, 2020</td>
+                    <td>Sep 23, 2026</td>
+                    <td>72</td>
+                    <td>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 65%; background: var(--phoenix-primary);"></div>
+                            </div>
+                            <span class="progress-text">277 / 539</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-ongoing">ONGOING</span>
+                    </td>
+                    <td>
+                        <button class="action-dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="8" cy="3" r="1.5"/>
+                                <circle cx="8" cy="8" r="1.5"/>
+                                <circle cx="8" cy="13" r="1.5"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                
+                <!-- Case 4 -->
+                <tr>
+                    <td>
+                        <div class="project-name-cell">
+                            <a href="#" class="project-name">Harnessing stupidity from Jerry</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="assignees-group">
+                            <img src="https://ui-avatars.com/api/?name=Anna+Taylor&background=f59e0b&color=fff&size=28" class="assignee-avatar" alt="AT">
+                            <img src="https://ui-avatars.com/api/?name=James+Miller&background=10b981&color=fff&size=28" class="assignee-avatar" alt="JM">
+                            <img src="https://ui-avatars.com/api/?name=Sophie+Davis&background=ec4899&color=fff&size=28" class="assignee-avatar" alt="SD">
+                        </div>
+                    </td>
+                    <td>Jan 01, 2016</td>
+                    <td>Apr 04, 2022</td>
+                    <td>91</td>
+                    <td>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 45%; background: var(--phoenix-danger);"></div>
+                            </div>
+                            <span class="progress-text">169 / 394</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-critical">CRITICAL</span>
+                    </td>
+                    <td>
+                        <button class="action-dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="8" cy="3" r="1.5"/>
+                                <circle cx="8" cy="8" r="1.5"/>
+                                <circle cx="8" cy="13" r="1.5"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                
+                <!-- Case 5 -->
+                <tr>
+                    <td>
+                        <div class="project-name-cell">
+                            <a href="#" class="project-name">Making the Butterflies shoot each other dead</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="assignees-group">
+                            <img src="https://ui-avatars.com/api/?name=Kevin+White&background=8b5cf6&color=fff&size=28" class="assignee-avatar" alt="KW">
+                            <img src="https://ui-avatars.com/api/?name=Maria+Garcia&background=ef4444&color=fff&size=28" class="assignee-avatar" alt="MG">
+                            <img src="https://ui-avatars.com/api/?name=Paul+Robinson&background=3b82f6&color=fff&size=28" class="assignee-avatar" alt="PR">
+                            <div class="assignee-count">+3</div>
+                        </div>
+                    </td>
+                    <td>Dec 24, 2019</td>
+                    <td>Jan 15, 2024</td>
+                    <td>134</td>
+                    <td>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 100%;"></div>
+                            </div>
+                            <span class="progress-text">600 / 600</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-ongoing">ONGOING</span>
+                    </td>
+                    <td>
+                        <button class="action-dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="8" cy="3" r="1.5"/>
+                                <circle cx="8" cy="8" r="1.5"/>
+                                <circle cx="8" cy="13" r="1.5"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                
+                <!-- Case 6 -->
+                <tr>
+                    <td>
+                        <div class="project-name-cell">
+                            <a href="#" class="project-name">The chewing gum attack</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="assignees-group">
+                            <img src="https://ui-avatars.com/api/?name=Nina+Harris&background=22c55e&color=fff&size=28" class="assignee-avatar" alt="NH">
+                            <img src="https://ui-avatars.com/api/?name=Oliver+Clark&background=f59e0b&color=fff&size=28" class="assignee-avatar" alt="OC">
+                        </div>
+                    </td>
+                    <td>Aug 4, 2018</td>
+                    <td>Oct 22, 2023</td>
+                    <td>24</td>
+                    <td>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 100%;"></div>
+                            </div>
+                            <span class="progress-text">600 / 600</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-cancelled">CANCELLED</span>
+                    </td>
+                    <td>
+                        <button class="action-dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="8" cy="3" r="1.5"/>
+                                <circle cx="8" cy="8" r="1.5"/>
+                                <circle cx="8" cy="13" r="1.5"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Pagination -->
+        <div class="phoenix-pagination">
+            <div class="pagination-info">
+                1 to 6 Items of 7
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="#" style="color: var(--phoenix-primary); text-decoration: none; font-size: 0.875rem;">View all →</a>
+                <div class="pagination-controls ms-3">
+                    <button class="pagination-btn" disabled>‹</button>
+                    <button class="pagination-btn active">1</button>
+                    <button class="pagination-btn">2</button>
+                    <button class="pagination-btn">›</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<div class="phoenix-footer">
+    Thank you for creating with Phoenix | 2025 © <a href="#">Themewagon</a>
+    <span style="float: right; color: var(--phoenix-gray-500); font-size: 0.75rem;">v1.23.0</span>
+</div>
+
+<!-- Chat Demo Button -->
+<button class="chat-demo-btn">
+    Chat demo
+</button>
+
+<script>
+    function filterCases(status) {
+        // Update active pill
+        document.querySelectorAll('.filter-pill').forEach(pill => {
+            pill.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Filter logic here
+        console.log('Filtering by:', status);
+    }
+</script>
+{% endblock %}

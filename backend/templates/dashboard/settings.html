@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Settings - DCPlant{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Settings</h1>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group">
+                <a href="#profile" class="list-group-item list-group-item-action active">Profile</a>
+                <a href="#appearance" class="list-group-item list-group-item-action">Appearance</a>
+                <a href="#notifications" class="list-group-item list-group-item-action">Notifications</a>
+                <a href="#security" class="list-group-item list-group-item-action">Security</a>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <!-- Profile Settings -->
+            <div class="card mb-4" id="profile">
+                <div class="card-header">
+                    <h5>Profile Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'dashboard:profile' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" name="first_name" value="{{ user.first_name }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" name="last_name" value="{{ user.last_name }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" value="{{ user.email }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="tel" class="form-control" name="phone" value="{{ profile.phone|default:'' }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Profile</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Appearance Settings -->
+            <div class="card mb-4" id="appearance">
+                <div class="card-header">
+                    <h5>Appearance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Theme</label>
+                        <select class="form-select" id="themeSelect">
+                            <option value="default">Classic</option>
+                            <option value="phoenix">Phoenix</option>
+                            <option value="brite">Brite</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveTheme()">Save Theme</button>
+                </div>
+            </div>
+            
+            <!-- Notification Settings -->
+            <div class="card mb-4" id="notifications">
+                <div class="card-header">
+                    <h5>Notifications</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                        <label class="form-check-label" for="emailNotifications">
+                            Email Notifications
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="caseUpdates" checked>
+                        <label class="form-check-label" for="caseUpdates">
+                            Case Updates
+                        </label>
+                    </div>
+                    <button class="btn btn-primary">Save Notifications</button>
+                </div>
+            </div>
+            
+            <!-- Security Settings -->
+            <div class="card" id="security">
+                <div class="card-header">
+                    <h5>Security</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Change Password</h6>
+                    <form>
+                        <div class="mb-3">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function saveTheme() {
+    const theme = document.getElementById('themeSelect').value;
+    fetch("{% url 'dashboard:switch_theme' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'theme=' + theme
+    }).then(response => {
+        if (response.ok) {
+            window.location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,697 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}Case {{ case.case_number }} - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="page-title">
+                <i class="bi bi-folder-check"></i> Case {{ case.case_number }}
+            </h1>
+            <div>
+                {% if user == case.created_by or user.profile.is_admin or user.is_staff %}
+                <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-primary border-2 border-dark">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                {% endif %}
+                <button class="btn btn-outline-secondary border-2 border-dark" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Status and Priority Banner -->
+        <div class="card border-2 mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label class="text-muted small mb-1">Status</label>
+                        <div class="d-flex align-items-center">
+                            <span class="badge badge-{{ case.status|lower }} fs-6 border-2 border-dark">
+                                {{ case.get_status_display }}
+                            </span>
+                            {% if user == case.created_by or user == case.assigned_to or user.profile.is_admin %}
+                            <button class="btn btn-sm btn-link text-primary" onclick="showStatusModal()">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted small mb-1">Priority</label>
+                        <div>
+                            <span class="priority-{{ case.priority|lower }} fs-6">
+                                <i class="bi bi-flag-fill"></i> {{ case.get_priority_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted small mb-1">Assigned To</label>
+                        <div>
+                            {% if case.assigned_to %}
+                                <i class="bi bi-person-check text-success"></i>
+                                Dr. {{ case.assigned_to.get_full_name|default:case.assigned_to.username }}
+                            {% else %}
+                                <span class="text-muted">
+                                    <i class="bi bi-person-x"></i> Not assigned
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Patient Information Card -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-primary text-dark border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-badge"></i> Patient Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2 text-center">
+                        <div class="patient-avatar-lg">
+                            <i class="bi bi-person-circle text-primary" style="font-size: 4rem;"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-10">
+                        <h4 class="mb-3">
+                            <a href="{% url 'cases:patient_detail' case.patient.pk %}" class="text-decoration-none">
+                                {{ case.patient.full_name }}
+                            </a>
+                        </h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-2">
+                                    <i class="bi bi-upc text-primary"></i>
+                                    <strong>MRN:</strong> {{ case.patient.mrn }}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-gender-ambiguous text-primary"></i>
+                                    <strong>Gender:</strong> {{ case.patient.get_gender_display }}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-calendar3 text-primary"></i>
+                                    <strong>DOB:</strong> {{ case.patient.date_of_birth|date:"M d, Y" }}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2">
+                                    <i class="bi bi-hourglass-split text-primary"></i>
+                                    <strong>Age:</strong> {{ case.patient.age }} years
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-telephone text-primary"></i>
+                                    <strong>Phone:</strong> {{ case.patient.phone|default:"-" }}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-envelope text-primary"></i>
+                                    <strong>Email:</strong> {{ case.patient.email|default:"-" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Clinical Information -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-info">
+                    <i class="bi bi-clipboard2-pulse"></i> Clinical Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="clinical-section mb-4">
+                    <h6 class="text-primary mb-2">
+                        <i class="bi bi-chat-left-quote"></i> Chief Complaint
+                    </h6>
+                    <div class="bg-light border-2 border rounded p-3">
+                        {{ case.chief_complaint|linebreaks }}
+                    </div>
+                </div>
+                
+                {% if case.clinical_findings %}
+                <div class="clinical-section mb-4">
+                    <h6 class="text-info mb-2">
+                        <i class="bi bi-search"></i> Clinical Findings
+                    </h6>
+                    <div class="bg-light border-2 border rounded p-3">
+                        {{ case.clinical_findings|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if case.diagnosis %}
+                <div class="clinical-section mb-4">
+                    <h6 class="text-success mb-2">
+                        <i class="bi bi-file-medical"></i> Diagnosis
+                    </h6>
+                    <div class="bg-light border-2 border rounded p-3">
+                        {{ case.diagnosis|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if case.treatment_plan %}
+                <div class="clinical-section mb-4">
+                    <h6 class="text-warning mb-2">
+                        <i class="bi bi-prescription2"></i> Treatment Plan
+                    </h6>
+                    <div class="bg-light border-2 border rounded p-3">
+                        {{ case.treatment_plan|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if case.prognosis %}
+                <div class="clinical-section">
+                    <h6 class="text-purple mb-2">
+                        <i class="bi bi-graph-up-arrow"></i> Prognosis
+                    </h6>
+                    <div class="bg-light border-2 border rounded p-3">
+                        {{ case.prognosis|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Images Section -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-success bg-opacity-10 border-2 border-dark">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-success">
+                        <i class="bi bi-images"></i> Images & DICOM Files
+                    </h5>
+                    <div>
+                        {% if images.count > 0 %}
+                        <a href="{% url 'cases:image_list' case.pk %}" class="btn btn-sm btn-outline-success border-2 border-dark">
+                            <i class="bi bi-eye"></i> View All ({{ images.count }})
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-sm btn-success border-2 border-dark">
+                            <i class="bi bi-upload"></i> Upload
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if images %}
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-images text-success" style="font-size: 3rem;"></i>
+                            <div class="ms-3">
+                                <h4 class="mb-0">{{ images.count }}</h4>
+                                <p class="text-muted mb-0">Total Image{{ images.count|pluralize }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        {% if dicom_count > 10 %}
+                        <div class="alert alert-info border-2 border-dark mb-0">
+                            <i class="bi bi-stack"></i> <strong>CBCT Series</strong>
+                            <span class="badge bg-white text-dark border-2 border-dark ms-2">{{ dicom_count }} slices</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if dicom_count > 10 %}
+                <div class="mt-3 d-grid gap-2 d-md-flex">
+                    <a href="{% url 'cases:dicom_series_viewer' case.pk %}" class="btn btn-outline-info border-2 border-dark">
+                        <i class="bi bi-layers"></i> Open DICOM Viewer
+                    </a>
+                    <button class="btn btn-outline-success border-2 border-dark" onclick="downloadAllImages({{ case.pk }})">
+                        <i class="bi bi-download"></i> Download All Images
+                    </button>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                    <p class="text-muted mt-3 mb-3">No images uploaded yet</p>
+                    <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary border-2 border-dark">
+                        <i class="bi bi-cloud-upload"></i> Upload First Image
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Comments Section -->
+        <div class="card border-2">
+            <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-warning">
+                    <i class="bi bi-chat-dots"></i> Comments ({{ comments.count }})
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Add Comment Form -->
+                <form method="post" action="{% url 'cases:comment_add' case.pk %}" class="mb-4">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <textarea name="content" class="form-control border-2 border-dark" rows="3" 
+                                  placeholder="Add your comment here..." required></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <select name="visibility" class="form-select border-2 border-dark" style="width: auto;">
+                            <option value="PUBLIC">Public</option>
+                            <option value="INTERNAL">Internal Only</option>
+                            <option value="ADMIN">Admin Only</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary border-2 border-dark">
+                            <i class="bi bi-send"></i> Add Comment
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Comments List -->
+                <div class="comments-list">
+                    {% for comment in comments %}
+                    <div class="card border-2 mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <div>
+                                    <strong class="text-primary">
+                                        {% if comment.author %}
+                                            <i class="bi bi-person-circle"></i>
+                                            {{ comment.author.get_full_name|default:comment.author.username }}
+                                        {% else %}
+                                            <i class="bi bi-person"></i> Anonymous
+                                        {% endif %}
+                                    </strong>
+                                    <span class="text-muted small">• {{ comment.created_at|timesince }} ago</span>
+                                    {% if comment.visibility != 'PUBLIC' %}
+                                    <span class="badge bg-warning text-dark border-1 border-dark">
+                                        {{ comment.get_visibility_display }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% if comment.author and user == comment.author or user.profile.is_admin %}
+                                <form method="post" action="{% url 'cases:comment_delete' comment.pk %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-link text-danger" 
+                                            onclick="return confirm('Delete this comment?')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            <div class="comment-content">
+                                {{ comment.content|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-chat-left-dots text-muted" style="font-size: 3rem;"></i>
+                        <p class="text-muted mt-2">No comments yet. Be the first to comment!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Sidebar -->
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-primary text-dark border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning"></i> Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary border-2 border-dark">
+                        <i class="bi bi-upload"></i> Upload Images
+                    </a>
+                    {% if dicom_count > 10 %}
+                    <a href="{% url 'cases:dicom_series_viewer' case.pk %}" class="btn btn-outline-info border-2 border-dark">
+                        <i class="bi bi-layers"></i> DICOM Viewer
+                    </a>
+                    {% endif %}
+                    {% if images.count > 0 %}
+                    <button class="btn btn-outline-success border-2 border-dark" onclick="downloadAllImages({{ case.pk }})">
+                        <i class="bi bi-download"></i> Download All
+                    </button>
+                    {% endif %}
+                    {% if user == case.created_by or user.profile.is_admin %}
+                    <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-outline-warning border-2 border-dark">
+                        <i class="bi bi-pencil-square"></i> Edit Case
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Case Details -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-light border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Case Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Category:</dt>
+                    <dd class="col-7">
+                        {% if case.category %}
+                            <span class="badge bg-secondary border-1 border-dark">
+                                {{ case.category.name }}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-5 text-muted">Created By:</dt>
+                    <dd class="col-7">{{ case.created_by.get_full_name|default:case.created_by.username }}</dd>
+                    
+                    <dt class="col-5 text-muted">Created:</dt>
+                    <dd class="col-7">{{ case.created_at|date:"M d, Y" }}</dd>
+                    
+                    <dt class="col-5 text-muted">Updated:</dt>
+                    <dd class="col-7">{{ case.updated_at|date:"M d, Y" }}</dd>
+                    
+                    {% if case.completed_at %}
+                    <dt class="col-5 text-muted">Completed:</dt>
+                    <dd class="col-7">{{ case.completed_at|date:"M d, Y" }}</dd>
+                    {% endif %}
+                    
+                    {% if case.is_shared %}
+                    <dt class="col-5 text-muted">Sharing:</dt>
+                    <dd class="col-7">
+                        <span class="badge bg-info text-dark">
+                            <i class="bi bi-share"></i> Shared
+                        </span>
+                    </dd>
+                    {% endif %}
+                    
+                    {% if case.is_deidentified %}
+                    <dt class="col-5 text-muted">Privacy:</dt>
+                    <dd class="col-7">
+                        <span class="badge bg-success">
+                            <i class="bi bi-shield-check"></i> De-identified
+                        </span>
+                    </dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        
+        <!-- Activity Log -->
+        <div class="card border-2">
+            <div class="card-header bg-light border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Activity Log
+                </h5>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                <div class="timeline">
+                    {% for activity in activities %}
+                    <div class="timeline-item mb-3 pb-3 border-bottom">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <i class="bi bi-circle-fill text-primary" style="font-size: 0.5rem;"></i>
+                                <strong class="ms-2">
+                                    {% if activity.user %}
+                                        {{ activity.user.get_full_name|default:activity.user.username }}
+                                    {% else %}
+                                        System
+                                    {% endif %}
+                                </strong>
+                            </div>
+                            <small class="text-muted">{{ activity.created_at|timesince }} ago</small>
+                        </div>
+                        <p class="mb-0 ms-3 small text-muted">{{ activity.description }}</p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">No activities recorded.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Update Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-2">
+            <div class="modal-header bg-primary text-dark border-2 border-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-flag"></i> Update Status
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <select id="newStatus" class="form-select border-2 border-dark">
+                    <option value="DRAFT" {% if case.status == 'DRAFT' %}selected{% endif %}>Draft</option>
+                    <option value="OPEN" {% if case.status == 'OPEN' %}selected{% endif %}>Open</option>
+                    <option value="IN_PROGRESS" {% if case.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+                    <option value="REVIEW" {% if case.status == 'REVIEW' %}selected{% endif %}>Review</option>
+                    <option value="COMPLETED" {% if case.status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+                    <option value="CANCELLED" {% if case.status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary border-2 border-dark" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary border-2 border-dark" onclick="updateStatus()">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Download Progress Modal -->
+<div class="modal fade" id="downloadProgressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-2">
+            <div class="modal-header bg-success text-white border-2 border-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-download"></i> Preparing Download
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                </div>
+                
+                <div class="progress border-2 border-dark mb-3" style="height: 30px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                         role="progressbar" id="downloadProgressBar" style="width: 0%">0%</div>
+                </div>
+                
+                <p class="text-center mb-0" id="downloadProgressText">Initializing...</p>
+                <p class="text-center small text-muted">Please wait while we compress your files...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Status badge colors */
+.badge-draft { 
+    background-color: #6c757d !important; 
+    color: white !important;
+}
+.badge-open { 
+    background-color: #22d2ed !important; 
+    color: white !important;
+}
+.badge-in_progress { 
+    background-color: #ffc700 !important; 
+    color: #000 !important;
+}
+.badge-review { 
+    background-color: #be82fa !important; 
+    color: white !important;
+}
+.badge-completed { 
+    background-color: #68d391 !important; 
+    color: white !important;
+}
+.badge-cancelled { 
+    background-color: #f56565 !important; 
+    color: white !important;
+}
+
+/* Priority colors */
+.priority-low { color: #6c757d; }
+.priority-medium { color: #007bff; }
+.priority-high { color: #ffc107; font-weight: bold; }
+.priority-urgent { color: #dc3545; font-weight: bold; }
+
+/* Timeline styling */
+.timeline-item:last-child {
+    border-bottom: none !important;
+}
+
+/* Clinical sections */
+.clinical-section h6 {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+}
+
+/* Comment styling */
+.comment-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .card {
+    background-color: #2b3035 !important;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #1a1d20 !important;
+    color: #dee2e6 !important;
+}
+
+[data-bs-theme="dark"] .timeline-item {
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .modal-content {
+    background-color: #2b3035 !important;
+}
+
+/* Custom text color */
+.text-purple {
+    color: #6f42c1 !important;
+}
+</style>
+
+<script>
+function showStatusModal() {
+    const modal = new bootstrap.Modal(document.getElementById('statusModal'));
+    modal.show();
+}
+
+function updateStatus() {
+    const newStatus = document.getElementById('newStatus').value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`/cases/ajax/case/{{ case.pk }}/status/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: `status=${newStatus}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error updating status');
+        }
+    });
+}
+
+// Download functionality
+function downloadAllImages(caseId) {
+    showDownloadProgress();
+    
+    fetch(`/cases/case/${caseId}/download-images/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Download failed');
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `case_${caseId}_all_images.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        hideDownloadProgress();
+    })
+    .catch(error => {
+        console.error('Download error:', error);
+        hideDownloadProgress();
+        alert('Download failed. Please try again.');
+    });
+}
+
+function showDownloadProgress() {
+    const modal = document.getElementById('downloadProgressModal');
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    let progress = 0;
+    const progressBar = document.getElementById('downloadProgressBar');
+    const progressText = document.getElementById('downloadProgressText');
+    
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 95) progress = 95;
+        
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = Math.round(progress) + '%';
+        
+        if (progress < 30) {
+            progressText.textContent = 'Collecting images...';
+        } else if (progress < 60) {
+            progressText.textContent = 'Compressing files...';
+        } else if (progress < 90) {
+            progressText.textContent = 'Creating archive...';
+        } else {
+            progressText.textContent = 'Finalizing download...';
+        }
+    }, 200);
+    
+    modal.dataset.progressInterval = interval;
+}
+
+function hideDownloadProgress() {
+    const modal = document.getElementById('downloadProgressModal');
+    const bsModal = bootstrap.Modal.getInstance(modal);
+    
+    const interval = modal.dataset.progressInterval;
+    if (interval) {
+        clearInterval(interval);
+    }
+    
+    const progressBar = document.getElementById('downloadProgressBar');
+    const progressText = document.getElementById('downloadProgressText');
+    progressBar.style.width = '100%';
+    progressBar.textContent = '100%';
+    progressText.textContent = 'Download complete!';
+    
+    setTimeout(() => {
+        if (bsModal) {
+            bsModal.hide();
+        }
+    }, 1000);
+}
+</script>
+{% endblock %}

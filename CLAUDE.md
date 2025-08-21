@@ -159,11 +159,17 @@ DCPlant is a comprehensive dental case and patient management system with DICOM 
 - WhiteNoise
 
 ### Frontend
-- Bootstrap 5
+- Bootstrap 5 with Bootswatch Brite Theme
 - Cornerstone.js (DICOM viewer)
 - CornerstoneTools
 - CornerstoneWADOImageLoader
 - Summernote (rich text editor)
+
+### Design System
+- **Theme:** Bootswatch Brite v5.3.7
+- **Primary Color:** #a2e436 (Bright Lime Green)
+- **Base Font Size:** 0.875rem (14px)
+- **Design Guide:** See `/backend/DESIGN_GUIDE.md` for complete style specifications
 
 ### DevOps
 - Docker & Docker Compose

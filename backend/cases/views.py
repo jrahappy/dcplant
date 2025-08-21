@@ -80,10 +80,12 @@ def case_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Get current theme - use v2 for Phoenix
+    # Get current theme and select appropriate template
     theme = request.session.get('theme', django_settings.DEFAULT_THEME)
     if theme == 'phoenix':
         template = 'cases/case_list_v2.html'
+    elif theme in ['brite', 'brite_sidebar']:
+        template = 'cases/case_list_brite.html'
     else:
         template = 'cases/case_list.html'
     
@@ -92,7 +94,7 @@ def case_list(request):
         'cases': page_obj,  # For compatibility with Phoenix template
         'filter_form': filter_form,
         'total_count': cases.count(),
-        'categories': Category.objects.filter(organization=user_org),  # For Phoenix filter
+        'categories': Category.objects.all(),  # For Phoenix filter
     }
     return render(request, template, context)
 
@@ -123,6 +125,13 @@ def case_detail(request, pk):
     # Comment form
     comment_form = CommentForm()
     
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/case_detail_brite.html'
+    else:
+        template = 'cases/case_detail.html'
+    
     context = {
         'case': case,
         'comments': comments,
@@ -131,7 +140,7 @@ def case_detail(request, pk):
         'comment_form': comment_form,
         'dicom_count': dicom_count,
     }
-    return render(request, 'cases/case_detail.html', context)
+    return render(request, template, context)
 
 
 @login_required
@@ -159,13 +168,32 @@ def case_create(request):
             messages.success(request, f'Case {case.case_number} created successfully!')
             return redirect('cases:case_detail', pk=case.pk)
     else:
-        form = CaseForm(user=request.user)
+        # Check if patient ID is passed in URL
+        initial_data = {}
+        patient_id = request.GET.get('patient')
+        if patient_id:
+            try:
+                # Verify patient belongs to user's organization
+                patient = Patient.objects.get(pk=patient_id, organization=profile.organization)
+                initial_data['patient'] = patient.pk
+            except Patient.DoesNotExist:
+                pass
+        
+        form = CaseForm(user=request.user, initial=initial_data)
+    
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/case_form_brite.html'
+    else:
+        template = 'cases/case_form.html'
     
     context = {
         'form': form,
         'title': 'Create New Case',
+        'selected_patient_id': request.GET.get('patient'),  # Pass patient ID to template
     }
-    return render(request, 'cases/case_form.html', context)
+    return render(request, template, context)
 
 
 @login_required
@@ -208,12 +236,20 @@ def case_update(request, pk):
     else:
         form = CaseForm(instance=case, user=request.user)
     
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/case_form_brite.html'
+    else:
+        template = 'cases/case_form.html'
+    
     context = {
         'form': form,
         'case': case,
+        'object': case,  # For template to know it's an update
         'title': f'Edit Case {case.case_number}',
     }
-    return render(request, 'cases/case_form.html', context)
+    return render(request, template, context)
 
 
 @login_required
@@ -259,12 +295,19 @@ def patient_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/patient_list_brite.html'
+    else:
+        template = 'cases/patient_list.html'
+    
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
         'total_count': patients.count(),
     }
-    return render(request, 'cases/patient_list.html', context)
+    return render(request, template, context)
 
 
 @login_required
@@ -279,6 +322,13 @@ def patient_detail(request, pk):
     active_cases = cases.filter(status__in=['OPEN', 'IN_PROGRESS']).count()
     completed_cases = cases.filter(status='COMPLETED').count()
     
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/patient_detail_brite.html'
+    else:
+        template = 'cases/patient_detail.html'
+    
     context = {
         'patient': patient,
         'cases': cases,
@@ -286,7 +336,7 @@ def patient_detail(request, pk):
         'active_cases': active_cases,
         'completed_cases': completed_cases,
     }
-    return render(request, 'cases/patient_detail.html', context)
+    return render(request, template, context)
 
 
 @login_required
@@ -309,11 +359,18 @@ def patient_create(request):
     else:
         form = PatientForm()
     
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/patient_form_brite.html'
+    else:
+        template = 'cases/patient_form.html'
+    
     context = {
         'form': form,
         'title': 'Add New Patient',
     }
-    return render(request, 'cases/patient_form.html', context)
+    return render(request, template, context)
 
 
 @login_required
@@ -335,12 +392,20 @@ def patient_update(request, pk):
     else:
         form = PatientForm(instance=patient)
     
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'cases/patient_form_brite.html'
+    else:
+        template = 'cases/patient_form.html'
+    
     context = {
         'form': form,
         'patient': patient,
+        'object': patient,  # For template to know it's an update
         'title': f'Edit Patient: {patient.full_name}',
     }
-    return render(request, 'cases/patient_form.html', context)
+    return render(request, template, context)
 
 
 @login_required

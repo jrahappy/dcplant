@@ -1,0 +1,601 @@
+/* DCPlant Brite Theme Custom Styles */
+
+/* ========================================
+   Global Styles
+   ======================================== */
+
+/* Ensure Brite theme colors are applied */
+:root {
+    --dcplant-primary: #a2e436;
+    --dcplant-primary-dark: #8bc92e;
+    --dcplant-border-width: 2px;
+}
+
+/* Body adjustments */
+body {
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* ========================================
+   Typography
+   ======================================== */
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+    color: var(--bs-heading-color);
+}
+
+.page-title {
+    font-size: 2.1875rem;
+    font-weight: 500;
+    color: #000 !important;
+    margin-bottom: 1.5rem;
+}
+
+/* Ensure page title icons also use black */
+.page-title i {
+    color: #000 !important;
+}
+
+/* More specific selectors for page titles */
+h1.page-title,
+h2.page-title,
+h3.page-title,
+.main-content .page-title {
+    color: #000 !important;
+}
+
+/* ========================================
+   Cards & Components
+   ======================================== */
+
+.card {
+    border: 2px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    transition: all 0.15s ease-in-out;
+}
+
+.card:hover {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0.5rem 1rem rgba(162, 228, 54, 0.15);
+}
+
+.card-header {
+    background-color: var(--bs-light);
+    border-bottom: 2px solid var(--bs-border-color);
+    font-weight: 500;
+}
+
+/* ========================================
+   Buttons
+   ======================================== */
+
+.btn {
+    font-weight: 500;
+    border-width: 2px;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-primary {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-dark);
+    color: var(--bs-dark);
+}
+
+.btn-primary:hover {
+    background-color: var(--dcplant-primary-dark);
+    border-color: var(--bs-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Override Bootstrap Brite's button colors */
+.btn-outline-primary {
+    --bs-btn-color: #000 !important;
+    --bs-btn-border-color: var(--bs-primary) !important;
+    --bs-btn-hover-color: #000 !important;
+    --bs-btn-hover-bg: var(--bs-primary) !important;
+    --bs-btn-hover-border-color: var(--bs-dark) !important;
+    color: #000 !important;
+    border-color: var(--bs-primary);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active,
+.btn-outline-primary.active {
+    background-color: var(--bs-primary) !important;
+    border-color: var(--bs-dark) !important;
+    color: var(--bs-dark) !important;
+}
+
+/* For all outline buttons - ensure black text */
+.btn-outline-secondary {
+    --bs-btn-color: #000 !important;
+    color: #000 !important;
+}
+
+.btn-outline-success {
+    --bs-btn-color: #000 !important;
+    color: #000 !important;
+}
+
+.btn-outline-info {
+    --bs-btn-color: #000 !important;
+    color: #000 !important;
+}
+
+.btn-outline-warning {
+    --bs-btn-color: #000 !important;
+    color: #000 !important;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: #000 !important;
+    color: #000 !important;
+}
+
+/* Specifically for buttons with border-2 and border-dark */
+.btn-outline-primary.border-2,
+.btn-outline-primary.border-dark,
+.btn-outline-primary.border-2.border-dark {
+    color: #000 !important;
+    font-weight: 500;
+}
+
+.btn-outline-secondary.border-2,
+.btn-outline-secondary.border-dark,
+.btn-outline-secondary.border-2.border-dark,
+.btn-outline-success.border-2,
+.btn-outline-success.border-dark,
+.btn-outline-success.border-2.border-dark,
+.btn-outline-info.border-2,
+.btn-outline-info.border-dark,
+.btn-outline-info.border-2.border-dark,
+.btn-outline-warning.border-2,
+.btn-outline-warning.border-dark,
+.btn-outline-warning.border-2.border-dark,
+.btn-outline-danger.border-2,
+.btn-outline-danger.border-dark,
+.btn-outline-danger.border-2.border-dark {
+    color: #000 !important;
+    font-weight: 500;
+}
+
+/* ========================================
+   Forms
+   ======================================== */
+
+.form-control,
+.form-select {
+    border-width: 2px;
+    border-color: var(--bs-border-color);
+    font-size: 0.875rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--bs-dark);
+    box-shadow: 0 0 0 1px var(--bs-dark);
+}
+
+.form-label {
+    font-weight: 500;
+    color: var(--bs-dark);
+    margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   Tables
+   ======================================== */
+
+.table {
+    border: 2px solid var(--bs-dark);
+}
+
+.table thead th {
+    background-color: var(--bs-primary);
+    color: var(--bs-dark);
+    font-weight: 600;
+    border-color: var(--bs-dark);
+    border-width: 2px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(162, 228, 54, 0.1);
+}
+
+/* ========================================
+   Badges
+   ======================================== */
+
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+    border: 1px solid transparent;
+}
+
+.badge.bg-primary {
+    background-color: var(--bs-primary) !important;
+    color: var(--bs-dark) !important;
+    border-color: var(--bs-dark);
+}
+
+/* Status badges */
+.badge-draft { 
+    background-color: var(--bs-gray-500) !important; 
+    color: white !important;
+}
+.badge-open { 
+    background-color: var(--bs-info) !important; 
+    color: white !important;
+}
+.badge-in_progress { 
+    background-color: var(--bs-warning) !important; 
+    color: var(--bs-dark) !important;
+}
+.badge-review { 
+    background-color: var(--bs-purple) !important; 
+    color: white !important;
+}
+.badge-completed { 
+    background-color: var(--bs-success) !important; 
+    color: white !important;
+}
+.badge-cancelled { 
+    background-color: var(--bs-danger) !important; 
+    color: white !important;
+}
+
+/* Priority badges */
+.priority-low { 
+    color: var(--bs-gray-600);
+}
+.priority-medium { 
+    color: var(--bs-info);
+}
+.priority-high { 
+    color: var(--bs-warning);
+}
+.priority-urgent { 
+    color: var(--bs-danger);
+    font-weight: 600;
+}
+
+/* ========================================
+   Navigation
+   ======================================== */
+
+.navbar {
+    padding: 1rem;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.nav-link {
+    font-weight: 500;
+    color: var(--bs-dark);
+    transition: all 0.15s ease-in-out;
+}
+
+.nav-link:hover {
+    color: var(--bs-primary);
+    transform: translateX(4px);
+}
+
+.nav-link.active {
+    color: var(--bs-primary) !important;
+    border-bottom: 2px solid var(--bs-primary);
+}
+
+/* ========================================
+   Alerts
+   ======================================== */
+
+.alert {
+    border-width: 2px;
+    font-weight: 500;
+}
+
+.alert-success {
+    background-color: rgba(104, 211, 145, 0.1);
+    border-color: var(--bs-success);
+    color: var(--bs-success-text-emphasis);
+}
+
+.alert-danger {
+    background-color: rgba(245, 101, 101, 0.1);
+    border-color: var(--bs-danger);
+    color: var(--bs-danger-text-emphasis);
+}
+
+.alert-warning {
+    background-color: rgba(255, 199, 0, 0.1);
+    border-color: var(--bs-warning);
+    color: var(--bs-warning-text-emphasis);
+}
+
+.alert-info {
+    background-color: rgba(34, 210, 237, 0.1);
+    border-color: var(--bs-info);
+    color: var(--bs-info-text-emphasis);
+}
+
+/* ========================================
+   Dashboard Stats Cards
+   ======================================== */
+
+.stat-card {
+    border: 2px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    transition: all 0.2s ease-in-out;
+    background: white;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    border-color: var(--bs-primary);
+}
+
+.stat-card .stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    font-size: 1.5rem;
+}
+
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-card .stat-label {
+    font-size: 0.875rem;
+    color: var(--bs-secondary-color);
+    font-weight: 500;
+}
+
+/* ========================================
+   Case Cards
+   ======================================== */
+
+.case-card {
+    border: 2px solid var(--bs-border-color);
+    transition: all 0.2s ease-in-out;
+}
+
+.case-card:hover {
+    border-color: var(--bs-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(162, 228, 54, 0.2);
+}
+
+.case-number {
+    font-family: var(--bs-font-monospace);
+    font-weight: 600;
+    color: var(--bs-primary);
+}
+
+/* ========================================
+   Patient Cards
+   ======================================== */
+
+.patient-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: var(--bs-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    border: 2px solid var(--bs-dark);
+}
+
+/* ========================================
+   Image Gallery
+   ======================================== */
+
+.image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.image-card {
+    border: 2px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+}
+
+.image-card:hover {
+    border-color: var(--bs-primary);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ========================================
+   DICOM Viewer
+   ======================================== */
+
+.dicom-controls {
+    background-color: var(--bs-light);
+    border: 2px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+
+.dicom-viewport {
+    border: 2px solid var(--bs-dark);
+    border-radius: 0.375rem;
+    background-color: #000;
+}
+
+/* ========================================
+   Blog Posts
+   ======================================== */
+
+.blog-card {
+    border: 2px solid var(--bs-border-color);
+    transition: all 0.2s ease-in-out;
+}
+
+.blog-card:hover {
+    border-color: var(--bs-primary);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(162, 228, 54, 0.15);
+}
+
+.blog-meta {
+    color: var(--bs-secondary-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* ========================================
+   Dark Mode Overrides
+   ======================================== */
+
+[data-bs-theme="dark"] {
+    --bs-body-bg: #212529;
+    --bs-body-color: #dee2e6;
+    --bs-border-color: #495057;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #2b3035;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .card-header {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .navbar {
+    background-color: #2b3035 !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .nav-link {
+    color: #dee2e6;
+}
+
+[data-bs-theme="dark"] .nav-link:hover {
+    color: var(--bs-primary);
+}
+
+[data-bs-theme="dark"] .nav-link.active {
+    color: #c7ef86 !important;
+    border-bottom-color: #c7ef86;
+}
+
+[data-bs-theme="dark"] .stat-card {
+    background-color: #2b3035;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .btn-primary {
+    background-color: #c7ef86;
+    border-color: #a2e436;
+    color: #000;
+}
+
+[data-bs-theme="dark"] .btn-primary:hover {
+    background-color: #a2e436;
+    border-color: #8bc92e;
+}
+
+[data-bs-theme="dark"] .table {
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .table thead th {
+    background-color: #343a40;
+    color: #c7ef86;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] footer {
+    background-color: #2b3035 !important;
+    border-color: #495057 !important;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.text-primary-brite {
+    color: var(--bs-primary) !important;
+}
+
+.bg-primary-brite {
+    background-color: var(--bs-primary) !important;
+}
+
+.border-primary-brite {
+    border-color: var(--bs-primary) !important;
+}
+
+.shadow-brite {
+    box-shadow: 0 4px 12px rgba(162, 228, 54, 0.2) !important;
+}
+
+.hover-lift {
+    transition: transform 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+    transform: translateY(-4px);
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+
+@keyframes pulse-primary {
+    0% {
+        box-shadow: 0 0 0 0 rgba(162, 228, 54, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(162, 228, 54, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(162, 228, 54, 0);
+    }
+}
+
+.pulse-primary {
+    animation: pulse-primary 2s infinite;
+}
+
+/* ========================================
+   Responsive Adjustments
+   ======================================== */
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.75rem;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .image-gallery {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}

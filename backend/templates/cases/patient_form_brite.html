@@ -1,0 +1,484 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="page-title">
+            <i class="bi bi-person-{% if object %}badge{% else %}plus{% endif %}"></i> {{ title }}
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger border-2 border-dark" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+            
+            <!-- Personal Information -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-primary text-dark border-2 border-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-vcard"></i> Personal Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.mrn.id_for_label }}" class="form-label fw-semibold">
+                                MRN (Medical Record Number) <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-upc"></i>
+                                </span>
+                                <input type="text" name="{{ form.mrn.name }}" 
+                                       class="form-control border-2 border-dark {% if form.mrn.errors %}is-invalid{% endif %}"
+                                       id="{{ form.mrn.id_for_label }}"
+                                       value="{{ form.mrn.value|default:'' }}"
+                                       placeholder="Enter unique MRN"
+                                       required>
+                            </div>
+                            {% if form.mrn.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.mrn.errors.0 }}
+                            </div>
+                            {% endif %}
+                            {% if form.mrn.help_text %}
+                            <small class="text-muted">{{ form.mrn.help_text }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.gender.id_for_label }}" class="form-label fw-semibold">
+                                Gender <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-gender-ambiguous"></i>
+                                </span>
+                                <select name="{{ form.gender.name }}" 
+                                        class="form-select border-2 border-dark {% if form.gender.errors %}is-invalid{% endif %}"
+                                        id="{{ form.gender.id_for_label }}"
+                                        required>
+                                    <option value="">-- Select Gender --</option>
+                                    {% for value, label in form.gender.field.choices %}
+                                    <option value="{{ value }}" {% if form.gender.value == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% if form.gender.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.gender.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">
+                                First Name <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input type="text" name="{{ form.first_name.name }}" 
+                                       class="form-control border-2 border-dark {% if form.first_name.errors %}is-invalid{% endif %}"
+                                       id="{{ form.first_name.id_for_label }}"
+                                       value="{{ form.first_name.value|default:'' }}"
+                                       placeholder="Enter first name"
+                                       required>
+                            </div>
+                            {% if form.first_name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.first_name.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">
+                                Last Name <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input type="text" name="{{ form.last_name.name }}" 
+                                       class="form-control border-2 border-dark {% if form.last_name.errors %}is-invalid{% endif %}"
+                                       id="{{ form.last_name.id_for_label }}"
+                                       value="{{ form.last_name.value|default:'' }}"
+                                       placeholder="Enter last name"
+                                       required>
+                            </div>
+                            {% if form.last_name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.last_name.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.date_of_birth.id_for_label }}" class="form-label fw-semibold">
+                                Date of Birth <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-calendar3"></i>
+                                </span>
+                                <input type="date" name="{{ form.date_of_birth.name }}" 
+                                       class="form-control border-2 border-dark {% if form.date_of_birth.errors %}is-invalid{% endif %}"
+                                       id="{{ form.date_of_birth.id_for_label }}"
+                                       value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}"
+                                       max="{% now 'Y-m-d' %}"
+                                       required>
+                            </div>
+                            {% if form.date_of_birth.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.date_of_birth.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="blood_type" class="form-label fw-semibold">
+                                Blood Type
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-droplet"></i>
+                                </span>
+                                <select name="blood_type" 
+                                        class="form-select border-2 border-dark"
+                                        id="blood_type">
+                                    <option value="">-- Select Blood Type --</option>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                    <option value="O+">O+</option>
+                                    <option value="O-">O-</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Contact Information -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-info">
+                        <i class="bi bi-telephone"></i> Contact Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">
+                                Email Address
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-envelope"></i>
+                                </span>
+                                <input type="email" name="{{ form.email.name }}" 
+                                       class="form-control border-2 border-dark {% if form.email.errors %}is-invalid{% endif %}"
+                                       id="{{ form.email.id_for_label }}"
+                                       value="{{ form.email.value|default:'' }}"
+                                       placeholder="patient@example.com">
+                            </div>
+                            {% if form.email.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.email.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.phone.id_for_label }}" class="form-label fw-semibold">
+                                Phone Number
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-telephone"></i>
+                                </span>
+                                <input type="tel" name="{{ form.phone.name }}" 
+                                       class="form-control border-2 border-dark {% if form.phone.errors %}is-invalid{% endif %}"
+                                       id="{{ form.phone.id_for_label }}"
+                                       value="{{ form.phone.value|default:'' }}"
+                                       placeholder="(555) 123-4567">
+                            </div>
+                            {% if form.phone.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.phone.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.address.id_for_label }}" class="form-label fw-semibold">
+                            Address
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text border-2 border-dark align-self-start pt-2">
+                                <i class="bi bi-geo-alt"></i>
+                            </span>
+                            <textarea name="{{ form.address.name }}" 
+                                      class="form-control border-2 border-dark {% if form.address.errors %}is-invalid{% endif %}"
+                                      id="{{ form.address.id_for_label }}"
+                                      rows="3"
+                                      placeholder="Enter full address">{{ form.address.value|default:'' }}</textarea>
+                        </div>
+                        {% if form.address.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.address.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Medical Information -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-heart-pulse"></i> Medical Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="{{ form.medical_history.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-clipboard2-pulse text-primary"></i> Medical History
+                        </label>
+                        <textarea name="{{ form.medical_history.name }}" 
+                                  class="form-control border-2 border-dark {% if form.medical_history.errors %}is-invalid{% endif %}"
+                                  id="{{ form.medical_history.id_for_label }}"
+                                  rows="4"
+                                  placeholder="Enter patient's medical history, past conditions, surgeries, etc.">{{ form.medical_history.value|default:'' }}</textarea>
+                        {% if form.medical_history.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.medical_history.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.allergies.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-exclamation-triangle text-danger"></i> Allergies
+                        </label>
+                        <textarea name="{{ form.allergies.name }}" 
+                                  class="form-control border-2 border-dark {% if form.allergies.errors %}is-invalid{% endif %}"
+                                  id="{{ form.allergies.id_for_label }}"
+                                  rows="3"
+                                  placeholder="List any known allergies (medications, food, environmental, etc.)">{{ form.allergies.value|default:'' }}</textarea>
+                        {% if form.allergies.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.allergies.errors.0 }}
+                        </div>
+                        {% endif %}
+                        {% if form.allergies.value %}
+                        <div class="alert alert-warning border-2 border-dark mt-2">
+                            <i class="bi bi-exclamation-circle"></i> Patient has known allergies
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.insurance_info.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-shield-check text-success"></i> Insurance Information
+                        </label>
+                        <textarea name="{{ form.insurance_info.name }}" 
+                                  class="form-control border-2 border-dark {% if form.insurance_info.errors %}is-invalid{% endif %}"
+                                  id="{{ form.insurance_info.id_for_label }}"
+                                  rows="3"
+                                  placeholder="Insurance provider, policy number, group number, etc.">{{ form.insurance_info.value|default:'' }}</textarea>
+                        {% if form.insurance_info.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.insurance_info.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Consent -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-success bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-success">
+                        <i class="bi bi-file-earmark-check"></i> Consent & Agreement
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-check-lg">
+                        <input type="checkbox" 
+                               name="{{ form.consent_given.name }}" 
+                               class="form-check-input border-2 border-dark {% if form.consent_given.errors %}is-invalid{% endif %}"
+                               id="{{ form.consent_given.id_for_label }}"
+                               {% if form.consent_given.value %}checked{% endif %}>
+                        <label class="form-check-label" for="{{ form.consent_given.id_for_label }}">
+                            <strong>Patient has given consent for treatment and data sharing</strong>
+                            <br>
+                            <small class="text-muted">
+                                By checking this box, you confirm that the patient has provided informed consent
+                                for medical treatment and agrees to the practice's data handling policies.
+                            </small>
+                        </label>
+                    </div>
+                    {% if form.consent_given.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.consent_given.errors.0 }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if form.consent_given.value %}
+                    <div class="alert alert-success border-2 border-dark mt-3">
+                        <i class="bi bi-check-circle-fill"></i> Consent recorded
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="card border-2">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'cases:patient_list' %}" class="btn btn-outline-secondary border-2 border-dark">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <div>
+                            <button type="reset" class="btn btn-outline-warning border-2 border-dark me-2">
+                                <i class="bi bi-arrow-clockwise"></i> Reset Form
+                            </button>
+                            <button type="submit" class="btn btn-primary border-2 border-dark">
+                                <i class="bi bi-check-circle"></i> 
+                                {% if object %}Update{% else %}Create{% endif %} Patient
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.form-check-lg .form-check-input {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.125rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(162, 228, 54, 0.25) !important;
+}
+
+.is-invalid {
+    border-color: var(--bs-danger) !important;
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .card {
+    background-color: #2b3035 !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .input-group-text {
+    background-color: #1a1d20 !important;
+    border-color: #495057 !important;
+    color: #dee2e6 !important;
+}
+
+[data-bs-theme="dark"] .form-control::placeholder {
+    color: #6c757d !important;
+}
+</style>
+
+<script>
+// Auto-save draft functionality
+let autoSaveTimer;
+const form = document.querySelector('form');
+
+if (form) {
+    form.addEventListener('input', function() {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(function() {
+            saveDraft();
+        }, 2000);
+    });
+}
+
+function saveDraft() {
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+    localStorage.setItem('patientFormDraft', JSON.stringify(data));
+    showNotification('Draft saved', 'success');
+}
+
+function loadDraft() {
+    const draft = localStorage.getItem('patientFormDraft');
+    if (draft && !{% if object %}true{% else %}false{% endif %}) {
+        const data = JSON.parse(draft);
+        if (confirm('A draft was found. Would you like to restore it?')) {
+            Object.keys(data).forEach(key => {
+                const field = form.elements[key];
+                if (field) {
+                    if (field.type === 'checkbox') {
+                        field.checked = data[key] === 'on';
+                    } else {
+                        field.value = data[key];
+                    }
+                }
+            });
+            showNotification('Draft restored', 'info');
+        }
+    }
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} border-2 border-dark position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.innerHTML = `<i class="bi bi-check-circle"></i> ${message}`;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+}
+
+// Load draft on page load
+document.addEventListener('DOMContentLoaded', loadDraft);
+
+// Clear draft on successful submission
+form.addEventListener('submit', function() {
+    localStorage.removeItem('patientFormDraft');
+});
+</script>
+{% endblock %}

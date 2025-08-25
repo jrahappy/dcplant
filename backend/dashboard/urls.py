@@ -14,6 +14,7 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('settings/', views.settings, name='settings'),
     path('switch-theme/', views.switch_theme, name='switch_theme'),
+    path('password-change/', views.password_change, name='password_change'),
     
     # Admin
     path('reports/', views.reports, name='reports'),

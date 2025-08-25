@@ -28,9 +28,12 @@ def dashboard_home(request):
     # Choose template based on theme
     template_map = {
         'default': 'dashboard/home.html',
-        'phoenix': 'dashboard/home_phoenix.html'
+        'phoenix': 'dashboard/home_phoenix.html',
+        'brite': 'dashboard/home_brite.html',
+        'brite_sidebar': 'dashboard/home_brite.html'  # Uses sidebar layout
     }
-    template = template_map.get(theme, 'dashboard/home_phoenix.html')
+    # Use brite with sidebar as default
+    template = template_map.get(theme, 'dashboard/home_brite.html')
     
     # Get statistics
     total_cases = Case.objects.filter(organization=user_org).count()
@@ -132,7 +135,42 @@ def profile(request):
         return redirect('dashboard:profile')
     
     profile = ensure_user_profile(request.user)
-    return render(request, 'dashboard/profile.html', {'profile': profile})
+    
+    # Get current theme and select appropriate template
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    if theme in ['brite', 'brite_sidebar']:
+        template = 'dashboard/profile_brite.html'
+    else:
+        template = 'dashboard/profile.html'
+    
+    return render(request, template, {'profile': profile})
+
+
+@login_required
+def password_change(request):
+    """Password change view"""
+    from django.contrib.auth import update_session_auth_hash
+    from django.contrib.auth.forms import PasswordChangeForm
+    
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # Keep user logged in
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('dashboard:profile')
+        else:
+            messages.error(request, 'Please correct the error below.')
+    else:
+        form = PasswordChangeForm(request.user)
+    
+    # Get current theme
+    theme = request.session.get('theme', django_settings.DEFAULT_THEME)
+    context = {'form': form}
+    
+    # For now, just redirect back to profile with a message
+    messages.info(request, 'Password change feature coming soon!')
+    return redirect('dashboard:profile')
 
 
 @login_required
@@ -142,9 +180,14 @@ def settings(request):
     
     profile = ensure_user_profile(request.user)
     
-    # Get current theme
+    # Get current theme and select appropriate template
     theme = request.session.get('theme', django_settings.DEFAULT_THEME)
-    template = 'dashboard/settings_phoenix.html' if theme == 'phoenix' else 'dashboard/settings.html'
+    if theme == 'phoenix':
+        template = 'dashboard/settings_phoenix.html'
+    elif theme in ['brite', 'brite_sidebar']:
+        template = 'dashboard/settings_brite.html'
+    else:
+        template = 'dashboard/settings.html'
     
     if request.method == 'POST':
         # Handle settings update
@@ -237,7 +280,8 @@ def login_view(request):
         else:
             messages.error(request, 'Invalid username or password.')
     
-    return render(request, 'auth/login.html')
+    # Use Brite theme login template
+    return render(request, 'auth/login_brite.html')
 
 
 def signup_view(request):
@@ -292,8 +336,8 @@ def logout_view(request):
 @login_required
 def switch_theme(request):
     """Switch between themes."""
-    theme = request.POST.get('theme', 'phoenix')
-    if theme in ['default', 'phoenix']:
+    theme = request.POST.get('theme', 'brite')
+    if theme in ['default', 'phoenix', 'brite']:
         request.session['theme'] = theme
         return JsonResponse({'status': 'success', 'theme': theme})
     return JsonResponse({'status': 'error', 'message': 'Invalid theme'}, status=400)

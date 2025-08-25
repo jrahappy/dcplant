@@ -32,11 +32,16 @@
       "Bash(set DJANGO_SETTINGS_MODULE=core.settings)",
       "Bash(git init:*)",
       "Bash(git add:*)",
+<<<<<<< HEAD
       "Bash(./venv/Scripts/activate)",
       "Bash(source:*)",
       "Bash(pip install:*)",
       "Bash(cat:*)",
       "Bash(export DJANGO_SETTINGS_MODULE=core.settings.local)"
+=======
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+>>>>>>> 13981211f30e7d4656ec9d7c4158e0d64e34e0b6
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,742 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="page-title">
+            <i class="bi bi-folder-{% if object %}check{% else %}plus{% endif %}"></i> {{ title }}
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <!-- Error Alert Container -->
+            <div id="errorAlertContainer"></div>
+            
+            {% if form.errors %}
+            <div class="alert alert-danger border-2 border-dark alert-dismissible fade show mb-4" role="alert" style="position: relative; z-index: 1000;">
+                <h5 class="alert-heading">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Please correct the following errors:
+                </h5>
+                {% if form.non_field_errors %}
+                    <div class="mb-2">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% if form.patient.errors %}
+                    <div><strong>Patient:</strong> {{ form.patient.errors.0 }}</div>
+                {% endif %}
+                {% if form.chief_complaint.errors %}
+                    <div><strong>Chief Complaint:</strong> {{ form.chief_complaint.errors.0 }}</div>
+                {% endif %}
+                {% if form.status.errors %}
+                    <div><strong>Status:</strong> {{ form.status.errors.0 }}</div>
+                {% endif %}
+                {% if form.priority.errors %}
+                    <div><strong>Priority:</strong> {{ form.priority.errors.0 }}</div>
+                {% endif %}
+                {% for field in form %}
+                    {% if field.errors and field.name not in 'patient,chief_complaint,status,priority' %}
+                        <div><strong>{{ field.label }}:</strong> {{ field.errors.0 }}</div>
+                    {% endif %}
+                {% endfor %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+            
+            <!-- Patient & Category -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-primary text-dark border-2 border-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-badge"></i> Patient & Classification
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="{{ form.patient.id_for_label }}" class="form-label fw-semibold">
+                                Patient <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <select name="{{ form.patient.name }}" 
+                                        class="form-select border-2 border-dark {% if form.patient.errors %}is-invalid{% endif %}"
+                                        id="{{ form.patient.id_for_label }}"
+                                        required>
+                                    <option value="">-- Select Patient --</option>
+                                    {% for value, label in form.patient.field.choices %}
+                                    {% if value %}
+                                    <option value="{{ value }}" {% if form.patient.value == value or form.patient.value == value|stringformat:"s" or form.initial.patient == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <a href="{% url 'cases:patient_create' %}" target="_blank" 
+                                   class="btn btn-primary border-2 border-dark">
+                                    <i class="bi bi-person-plus"></i> New
+                                </a>
+                            </div>
+                            {% if form.patient.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.patient.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="{{ form.category.id_for_label }}" class="form-label fw-semibold">
+                                Category
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-tags"></i>
+                                </span>
+                                <select name="{{ form.category.name }}" 
+                                        class="form-select border-2 border-dark {% if form.category.errors %}is-invalid{% endif %}"
+                                        id="{{ form.category.id_for_label }}">
+                                    <option value="">-- Select Category --</option>
+                                    {% for value, label in form.category.field.choices %}
+                                    {% if value %}
+                                    <option value="{{ value }}" {% if form.category.value == value|stringformat:"s" %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% if form.category.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.category.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Selected Patient Info (will be populated via JS) -->
+                    <div id="patientInfo" class="alert alert-info border-2 border-dark d-none">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Selected Patient:</strong> <span id="patientDetails"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Clinical Information -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-info">
+                        <i class="bi bi-clipboard2-pulse"></i> Clinical Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="{{ form.chief_complaint.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-chat-left-quote text-primary"></i> Chief Complaint <span class="text-danger">*</span>
+                        </label>
+                        <textarea name="{{ form.chief_complaint.name }}" 
+                                  class="form-control border-2 border-dark {% if form.chief_complaint.errors %}is-invalid{% endif %}"
+                                  id="{{ form.chief_complaint.id_for_label }}"
+                                  rows="3"
+                                  placeholder="Describe the patient's main concern or reason for visit"
+                                  required>{{ form.chief_complaint.value|default:'' }}</textarea>
+                        {% if form.chief_complaint.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.chief_complaint.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.clinical_findings.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-search text-info"></i> Clinical Findings
+                        </label>
+                        <textarea name="{{ form.clinical_findings.name }}" 
+                                  class="form-control border-2 border-dark {% if form.clinical_findings.errors %}is-invalid{% endif %}"
+                                  id="{{ form.clinical_findings.id_for_label }}"
+                                  rows="4"
+                                  placeholder="Document examination findings, test results, and observations">{{ form.clinical_findings.value|default:'' }}</textarea>
+                        {% if form.clinical_findings.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.clinical_findings.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.diagnosis.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-file-medical text-success"></i> Diagnosis
+                        </label>
+                        <textarea name="{{ form.diagnosis.name }}" 
+                                  class="form-control border-2 border-dark {% if form.diagnosis.errors %}is-invalid{% endif %}"
+                                  id="{{ form.diagnosis.id_for_label }}"
+                                  rows="3"
+                                  placeholder="Primary and secondary diagnoses">{{ form.diagnosis.value|default:'' }}</textarea>
+                        {% if form.diagnosis.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.diagnosis.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Treatment Planning -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-success bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-success">
+                        <i class="bi bi-prescription2"></i> Treatment Planning
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="{{ form.treatment_plan.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-list-check text-primary"></i> Treatment Plan
+                        </label>
+                        <textarea name="{{ form.treatment_plan.name }}" 
+                                  class="form-control border-2 border-dark {% if form.treatment_plan.errors %}is-invalid{% endif %}"
+                                  id="{{ form.treatment_plan.id_for_label }}"
+                                  rows="4"
+                                  placeholder="Detailed treatment plan including procedures, medications, and follow-up">{{ form.treatment_plan.value|default:'' }}</textarea>
+                        {% if form.treatment_plan.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.treatment_plan.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.prognosis.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-graph-up-arrow text-info"></i> Prognosis
+                        </label>
+                        <textarea name="{{ form.prognosis.name }}" 
+                                  class="form-control border-2 border-dark {% if form.prognosis.errors %}is-invalid{% endif %}"
+                                  id="{{ form.prognosis.id_for_label }}"
+                                  rows="3"
+                                  placeholder="Expected outcome and recovery timeline">{{ form.prognosis.value|default:'' }}</textarea>
+                        {% if form.prognosis.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.prognosis.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Case Management -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-gear"></i> Case Management
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="{{ form.status.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-flag"></i> Status
+                            </label>
+                            <select name="{{ form.status.name }}" 
+                                    class="form-select border-2 border-dark {% if form.status.errors %}is-invalid{% endif %}"
+                                    id="{{ form.status.id_for_label }}">
+                                {% for value, label in form.status.field.choices %}
+                                <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.status.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.status.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="{{ form.priority.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-exclamation-triangle"></i> Priority
+                            </label>
+                            <select name="{{ form.priority.name }}" 
+                                    class="form-select border-2 border-dark {% if form.priority.errors %}is-invalid{% endif %}"
+                                    id="{{ form.priority.id_for_label }}">
+                                {% for value, label in form.priority.field.choices %}
+                                <option value="{{ value }}" {% if form.priority.value == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.priority.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.priority.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="{{ form.assigned_to.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-person-check"></i> Assigned To
+                            </label>
+                            <select name="{{ form.assigned_to.name }}" 
+                                    class="form-select border-2 border-dark {% if form.assigned_to.errors %}is-invalid{% endif %}"
+                                    id="{{ form.assigned_to.id_for_label }}">
+                                <option value="">-- Unassigned --</option>
+                                {% for value, label in form.assigned_to.field.choices %}
+                                {% if value %}
+                                <option value="{{ value }}" {% if form.assigned_to.value == value|stringformat:"s" %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            {% if form.assigned_to.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.assigned_to.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Priority indicators -->
+                    <div class="alert alert-light border-2 border-dark">
+                        <div class="row text-center">
+                            <div class="col">
+                                <span class="badge bg-secondary border-2 border-dark">Low Priority</span>
+                                <br><small>Routine cases</small>
+                            </div>
+                            <div class="col">
+                                <span class="badge bg-primary border-2 border-dark">Medium Priority</span>
+                                <br><small>Standard urgency</small>
+                            </div>
+                            <div class="col">
+                                <span class="badge bg-warning text-dark border-2 border-dark">High Priority</span>
+                                <br><small>Needs attention</small>
+                            </div>
+                            <div class="col">
+                                <span class="badge bg-danger border-2 border-dark">Urgent</span>
+                                <br><small>Immediate action</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sharing Options -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-light border-2 border-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-share"></i> Sharing & Privacy
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-check-lg mb-3">
+                        <input type="checkbox" 
+                               name="{{ form.is_shared.name }}" 
+                               class="form-check-input border-2 border-dark"
+                               id="{{ form.is_shared.id_for_label }}"
+                               {% if form.is_shared.value %}checked{% endif %}>
+                        <label class="form-check-label" for="{{ form.is_shared.id_for_label }}">
+                            <strong>Share this case</strong>
+                            <br>
+                            <small class="text-muted">Allow other branches to view this case</small>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-check-lg mb-3">
+                        <input type="checkbox" 
+                               name="{{ form.is_deidentified.name }}" 
+                               class="form-check-input border-2 border-dark"
+                               id="{{ form.is_deidentified.id_for_label }}"
+                               {% if form.is_deidentified.value %}checked{% endif %}>
+                        <label class="form-check-label" for="{{ form.is_deidentified.id_for_label }}">
+                            <strong>De-identify patient information</strong>
+                            <br>
+                            <small class="text-muted">Remove personal identifiers for privacy</small>
+                        </label>
+                    </div>
+                    
+                    <div class="mb-3" id="branchesDiv" style="display: none;">
+                        <label for="{{ form.share_with_branches.id_for_label }}" class="form-label fw-semibold">
+                            <i class="bi bi-building"></i> Share with Branches
+                        </label>
+                        <div class="border-2 border rounded p-3">
+                            <select name="{{ form.share_with_branches.name }}" 
+                                    class="form-select border-2 border-dark"
+                                    id="{{ form.share_with_branches.id_for_label }}"
+                                    multiple
+                                    size="5">
+                                {% for value, label in form.share_with_branches.field.choices %}
+                                <option value="{{ value }}" {% if value in form.share_with_branches.value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Hold Ctrl/Cmd to select multiple branches
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="card border-2">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'cases:case_list' %}" class="btn btn-outline-secondary border-2 border-dark">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <div>
+                            <button type="button" class="btn btn-outline-info border-2 border-dark me-2" onclick="saveDraft()">
+                                <i class="bi bi-save"></i> Save Draft
+                            </button>
+                            <button type="submit" name="action" value="save" class="btn btn-primary border-2 border-dark me-2">
+                                <i class="bi bi-check-circle"></i> Save
+                            </button>
+                            <button type="submit" name="action" value="save_and_add_images" class="btn btn-primary border-2 border-dark">
+                                <i class="bi bi-images"></i> Save & Add Images
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.form-check-lg .form-check-input {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.125rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(162, 228, 54, 0.25) !important;
+}
+
+.is-invalid {
+    border-color: var(--bs-danger) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    padding-right: calc(1.5em + 0.75rem);
+}
+
+.invalid-feedback {
+    display: block;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    color: var(--bs-danger);
+}
+
+.validation-alert {
+    animation: shake 0.5s;
+    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.3) !important;
+    border-width: 3px !important;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+    20%, 40%, 60%, 80% { transform: translateX(10px); }
+}
+
+#errorAlertContainer {
+    position: relative;
+    z-index: 100;
+    margin-bottom: 1rem;
+}
+
+/* Status colors */
+.badge-draft { background-color: #6c757d; }
+.badge-open { background-color: #22d2ed; }
+.badge-in_progress { background-color: #ffc700; color: #000; }
+.badge-review { background-color: #be82fa; }
+.badge-completed { background-color: #68d391; }
+.badge-cancelled { background-color: #f56565; }
+
+/* Priority colors */
+.priority-low { color: #6c757d; }
+.priority-medium { color: #007bff; }
+.priority-high { color: #ffc107; }
+.priority-urgent { color: #dc3545; font-weight: bold; }
+
+/* Dark mode support */
+[data-bs-theme="dark"] .card {
+    background-color: #2b3035 !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .input-group-text {
+    background-color: #1a1d20 !important;
+    border-color: #495057 !important;
+    color: #dee2e6 !important;
+}
+
+[data-bs-theme="dark"] .form-control::placeholder {
+    color: #6c757d !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle branch selection based on sharing checkbox
+    const isSharedCheckbox = document.getElementById('{{ form.is_shared.id_for_label }}');
+    const branchesDiv = document.getElementById('branchesDiv');
+    
+    function toggleBranches() {
+        if (isSharedCheckbox && isSharedCheckbox.checked) {
+            branchesDiv.style.display = 'block';
+        } else {
+            branchesDiv.style.display = 'none';
+        }
+    }
+    
+    if (isSharedCheckbox) {
+        isSharedCheckbox.addEventListener('change', toggleBranches);
+        toggleBranches();
+    }
+    
+    // Show patient info when selected
+    const patientSelect = document.getElementById('{{ form.patient.id_for_label }}');
+    const patientInfo = document.getElementById('patientInfo');
+    const patientDetails = document.getElementById('patientDetails');
+    
+    if (patientSelect) {
+        patientSelect.addEventListener('change', function() {
+            if (this.value) {
+                const selectedOption = this.options[this.selectedIndex];
+                patientDetails.textContent = selectedOption.text;
+                patientInfo.classList.remove('d-none');
+            } else {
+                patientInfo.classList.add('d-none');
+            }
+        });
+        
+        // Pre-select patient if ID is provided in URL
+        {% if selected_patient_id %}
+        const selectedPatientId = '{{ selected_patient_id }}';
+        if (selectedPatientId && !patientSelect.value) {
+            // Set the value if not already set
+            patientSelect.value = selectedPatientId;
+        }
+        {% endif %}
+        
+        // Trigger on load if patient is pre-selected
+        if (patientSelect.value) {
+            patientSelect.dispatchEvent(new Event('change'));
+        }
+    }
+});
+
+// Auto-save draft functionality
+function saveDraft() {
+    const form = document.querySelector('form');
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => {
+        if (key.includes('share_with_branches')) {
+            if (!data[key]) data[key] = [];
+            data[key].push(value);
+        } else {
+            data[key] = value;
+        }
+    });
+    localStorage.setItem('caseFormDraft', JSON.stringify(data));
+    showNotification('Draft saved locally', 'success');
+}
+
+function loadDraft() {
+    const draft = localStorage.getItem('caseFormDraft');
+    if (draft && !{% if object %}true{% else %}false{% endif %}) {
+        const data = JSON.parse(draft);
+        if (confirm('A draft was found. Would you like to restore it?')) {
+            const form = document.querySelector('form');
+            Object.keys(data).forEach(key => {
+                const field = form.elements[key];
+                if (field) {
+                    if (field.type === 'checkbox') {
+                        field.checked = data[key] === 'on';
+                    } else if (field.type === 'select-multiple') {
+                        const values = Array.isArray(data[key]) ? data[key] : [data[key]];
+                        Array.from(field.options).forEach(option => {
+                            option.selected = values.includes(option.value);
+                        });
+                    } else {
+                        field.value = data[key];
+                    }
+                }
+            });
+            showNotification('Draft restored', 'info');
+            
+            // Trigger change events
+            const patientSelect = document.getElementById('{{ form.patient.id_for_label }}');
+            const isSharedCheckbox = document.getElementById('{{ form.is_shared.id_for_label }}');
+            if (patientSelect) patientSelect.dispatchEvent(new Event('change'));
+            if (isSharedCheckbox) isSharedCheckbox.dispatchEvent(new Event('change'));
+        }
+    }
+}
+
+function showNotification(message, type) {
+    // Create notification within the form area instead of fixed position
+    const errorContainer = document.getElementById('errorAlertContainer');
+    if (errorContainer) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} border-2 border-dark alert-dismissible fade show mb-3`;
+        notification.innerHTML = `
+            <i class="bi bi-check-circle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        errorContainer.appendChild(notification);
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+}
+
+// Load draft on page load
+document.addEventListener('DOMContentLoaded', loadDraft);
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    let isValid = true;
+    const requiredFields = this.querySelectorAll('[required]');
+    const errors = [];
+    
+    // Remove previous validation classes and feedback
+    requiredFields.forEach(field => {
+        field.classList.remove('is-invalid');
+        const container = field.closest('.mb-3, .col-md-8, .col-md-4');
+        if (container) {
+            const feedback = container.querySelector('.invalid-feedback');
+            if (feedback) feedback.remove();
+        }
+    });
+    
+    // Check required fields
+    requiredFields.forEach(field => {
+        if (!field.value || field.value.trim() === '') {
+            field.classList.add('is-invalid');
+            isValid = false;
+            
+            // Add field name to errors
+            const label = document.querySelector(`label[for="${field.id}"]`);
+            if (label) {
+                const fieldName = label.textContent.replace('*', '').trim();
+                errors.push(fieldName);
+                
+                // Add inline error message
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback d-block';
+                feedback.textContent = `${fieldName} is required`;
+                
+                // Find the right container
+                const container = field.closest('.mb-3, .col-md-8, .col-md-4');
+                if (container) {
+                    container.appendChild(feedback);
+                }
+            }
+        }
+    });
+    
+    // Show error alert if validation fails
+    if (!isValid) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Get the error container
+        const errorContainer = document.getElementById('errorAlertContainer');
+        
+        // Clear any existing alerts in the container
+        errorContainer.innerHTML = '';
+        
+        // Create new alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger border-3 border-dark alert-dismissible fade show validation-alert mb-4';
+        alertDiv.style.cssText = 'animation: shake 0.5s;';
+        alertDiv.innerHTML = `
+            <h5 class="alert-heading">
+                <i class="bi bi-exclamation-triangle-fill"></i> Please fill in all required fields:
+            </h5>
+            <ul class="mb-0">
+                ${errors.map(err => `<li><strong>${err}</strong></li>`).join('')}
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert the alert
+        errorContainer.appendChild(alertDiv);
+        
+        // Initialize Bootstrap alert
+        if (typeof bootstrap !== 'undefined') {
+            new bootstrap.Alert(alertDiv);
+        }
+        
+        // Scroll to the top of the form where the alert is
+        const formTop = this.offsetTop;
+        window.scrollTo({
+            top: formTop - 20,
+            behavior: 'smooth'
+        });
+        
+        console.log('Validation failed. Required fields missing:', errors);
+        return false;
+    }
+    
+    // Clear draft on successful submission
+    localStorage.removeItem('caseFormDraft');
+});
+
+// Auto-save on input
+let autoSaveTimer;
+document.querySelector('form').addEventListener('input', function(event) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(saveDraft, 2000);
+    
+    // Remove invalid class when user types
+    const target = event.target;
+    if (target.classList.contains('is-invalid') && target.value.trim() !== '') {
+        target.classList.remove('is-invalid');
+        const container = target.closest('.mb-3, .col-md-8, .col-md-4');
+        if (container) {
+            const feedback = container.querySelector('.invalid-feedback');
+            if (feedback) feedback.remove();
+        }
+        
+        // Check if all required fields are now filled
+        const requiredFields = document.querySelectorAll('[required]');
+        let allFilled = true;
+        requiredFields.forEach(field => {
+            if (!field.value || field.value.trim() === '') {
+                allFilled = false;
+            }
+        });
+        
+        // If all required fields are filled, remove the alert
+        if (allFilled) {
+            const errorContainer = document.getElementById('errorAlertContainer');
+            if (errorContainer) {
+                errorContainer.innerHTML = '';
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

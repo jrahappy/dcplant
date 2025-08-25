@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Profile - DCPlant{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>My Profile</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="card">
+            <div class="card-body">
+                <h5>Personal Information</h5>
+                
+                <div class="mb-3">
+                    <label for="first_name" class="form-label">First Name</label>
+                    <input type="text" name="first_name" id="first_name" class="form-control" value="{{ user.first_name }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="last_name" class="form-label">Last Name</label>
+                    <input type="text" name="last_name" id="last_name" class="form-control" value="{{ user.last_name }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" name="email" id="email" class="form-control" value="{{ user.email }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input type="tel" name="phone" id="phone" class="form-control" value="{{ profile.phone|default:'' }}">
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Update Profile</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

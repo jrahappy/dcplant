@@ -32,4 +32,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB per file
 DATA_UPLOAD_MAX_MEMORY_SIZE = 900 * 1024 * 1024  # 800MB total upload size
 
 # Theme Settings
-DEFAULT_THEME = 'phoenix'  # Options: 'default', 'phoenix'
+DEFAULT_THEME = 'brite'  # Options: 'default', 'phoenix', 'brite'

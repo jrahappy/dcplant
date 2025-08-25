@@ -1,0 +1,196 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}Patients - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="page-title">
+                <i class="bi bi-people-fill"></i> Patients
+            </h1>
+            <div>
+                <a href="{% url 'cases:patient_create' %}" class="btn btn-primary border-2 border-dark">
+                    <i class="bi bi-person-plus me-1"></i>Add Patient
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="card border-2 mb-4">
+    <div class="card-header">
+        <h5 class="mb-0 text-primary">
+            <i class="bi bi-search"></i> Search Patients
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-10">
+                <input type="text" name="search" class="form-control border-2 border-dark" 
+                       placeholder="Search by MRN, name, email, or phone..." 
+                       value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary border-2 border-dark w-100">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Patients Grid -->
+<div class="row g-4">
+    {% for patient in page_obj %}
+    <div class="col-xl-4 col-lg-6">
+        <div class="card border-2 hover-lift">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <div class="patient-avatar-lg me-3">
+                        {{ patient.first_name.0 }}{{ patient.last_name.0 }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">
+                            <a href="{% url 'cases:patient_detail' patient.pk %}" class="text-decoration-none text-primary">
+                                {{ patient.full_name }}
+                            </a>
+                        </h5>
+                        <div class="text-muted small mb-2">
+                            <span class="badge bg-light text-dark border-2 border-dark">MRN: {{ patient.mrn }}</span>
+                        </div>
+                        
+                        <div class="patient-info">
+                            <div class="mb-1">
+                                <i class="bi bi-calendar3 text-primary"></i>
+                                <span class="ms-1">{{ patient.date_of_birth|date:"M d, Y" }}</span>
+                                <span class="badge bg-secondary ms-2">{{ patient.age }} yrs</span>
+                            </div>
+                            
+                            <div class="mb-1">
+                                <i class="bi bi-gender-ambiguous text-primary"></i>
+                                <span class="ms-1">{{ patient.get_gender_display|default:"Not specified" }}</span>
+                            </div>
+                            
+                            {% if patient.email %}
+                            <div class="mb-1">
+                                <i class="bi bi-envelope text-primary"></i>
+                                <span class="ms-1 text-truncate">{{ patient.email }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if patient.phone %}
+                            <div class="mb-1">
+                                <i class="bi bi-telephone text-primary"></i>
+                                <span class="ms-1">{{ patient.phone }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-info text-dark border-2 border-dark">
+                                    <i class="bi bi-folder2-open"></i> {{ patient.cases.count }} case{{ patient.cases.count|pluralize }}
+                                </span>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'cases:patient_detail' patient.pk %}" 
+                                   class="btn btn-sm btn-outline-primary border-2" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if user.profile.is_admin or user.is_staff %}
+                                <a href="{% url 'cases:patient_update' patient.pk %}" 
+                                   class="btn btn-sm btn-outline-secondary border-2" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card border-2">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-people" style="font-size: 4rem;" class="text-muted"></i>
+                <h4 class="mt-3 text-muted">No Patients Found</h4>
+                <p class="text-muted">Start by adding your first patient to the system.</p>
+                <a href="{% url 'cases:patient_create' %}" class="btn btn-primary border-2 border-dark mt-3">
+                    <i class="bi bi-person-plus"></i> Add First Patient
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link border-2 border-dark" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                <i class="bi bi-chevron-left"></i> Previous
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+                <span class="page-link bg-primary text-dark border-2 border-dark">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link border-2 border-dark" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link border-2 border-dark" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                Next <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<style>
+.patient-avatar-lg {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: var(--bs-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    border: 2px solid var(--bs-dark);
+    flex-shrink: 0;
+}
+
+.patient-info {
+    font-size: 0.875rem;
+}
+
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

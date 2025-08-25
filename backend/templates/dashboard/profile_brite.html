@@ -1,0 +1,435 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}My Profile - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="page-title">
+            <i class="bi bi-person-circle"></i> My Profile
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <!-- Profile Card -->
+        <div class="card border-2 mb-4">
+            <div class="card-body text-center">
+                <div class="profile-avatar-xl mx-auto mb-3">
+                    {{ user.first_name.0|default:"U" }}{{ user.last_name.0|default:"" }}
+                </div>
+                <h4 class="mb-1">{{ user.get_full_name|default:user.username }}</h4>
+                <p class="text-muted mb-3">{{ profile.get_role_display|default:"User" }}</p>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary border-2 border-dark" onclick="document.getElementById('avatarUpload').click()">
+                        <i class="bi bi-camera"></i> Change Avatar
+                    </button>
+                    <input type="file" id="avatarUpload" class="d-none" accept="image/*">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Organization Info -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-light border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-building"></i> Organization
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="info-item mb-3">
+                    <label class="text-muted small text-uppercase">Organization Name</label>
+                    <p class="mb-0 fw-semibold">{{ profile.organization.name|default:"Not assigned" }}</p>
+                </div>
+                
+                <div class="info-item mb-3">
+                    <label class="text-muted small text-uppercase">Branch</label>
+                    <p class="mb-0 fw-semibold">{{ profile.organization.branch|default:"Main Branch" }}</p>
+                </div>
+                
+                <div class="info-item">
+                    <label class="text-muted small text-uppercase">Role</label>
+                    <div>
+                        {% if profile.role == 'ADMIN' %}
+                        <span class="badge bg-danger border-2 border-dark">Administrator</span>
+                        {% elif profile.role == 'DENTIST' %}
+                        <span class="badge bg-primary border-2 border-dark">Dentist</span>
+                        {% elif profile.role == 'ASSISTANT' %}
+                        <span class="badge bg-info text-dark border-2 border-dark">Assistant</span>
+                        {% else %}
+                        <span class="badge bg-secondary border-2 border-dark">{{ profile.get_role_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Account Stats -->
+        <div class="card border-2">
+            <div class="card-header bg-light border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i> Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="stat-item d-flex justify-content-between mb-2">
+                    <span class="text-muted">Member Since</span>
+                    <strong>{{ user.date_joined|date:"M d, Y" }}</strong>
+                </div>
+                <div class="stat-item d-flex justify-content-between mb-2">
+                    <span class="text-muted">Last Login</span>
+                    <strong>{{ user.last_login|timesince }} ago</strong>
+                </div>
+                <div class="stat-item d-flex justify-content-between">
+                    <span class="text-muted">Account Status</span>
+                    {% if user.is_active %}
+                    <span class="badge bg-success border-2 border-dark">Active</span>
+                    {% else %}
+                    <span class="badge bg-danger border-2 border-dark">Inactive</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8">
+        <!-- Personal Information Form -->
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-primary text-dark border-2 border-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-vcard"></i> Personal Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="first_name" class="form-label fw-semibold">
+                                First Name <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input type="text" 
+                                       name="first_name" 
+                                       id="first_name"
+                                       class="form-control border-2 border-dark"
+                                       value="{{ user.first_name }}"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="last_name" class="form-label fw-semibold">
+                                Last Name <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input type="text" 
+                                       name="last_name" 
+                                       id="last_name"
+                                       class="form-control border-2 border-dark"
+                                       value="{{ user.last_name }}"
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="username" class="form-label fw-semibold">
+                                Username
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-at"></i>
+                                </span>
+                                <input type="text" 
+                                       class="form-control border-2 border-dark"
+                                       value="{{ user.username }}"
+                                       disabled>
+                            </div>
+                            <small class="text-muted">Username cannot be changed</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="email" class="form-label fw-semibold">
+                                Email Address <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-envelope"></i>
+                                </span>
+                                <input type="email" 
+                                       name="email" 
+                                       id="email"
+                                       class="form-control border-2 border-dark"
+                                       value="{{ user.email }}"
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="phone" class="form-label fw-semibold">
+                            Phone Number
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text border-2 border-dark">
+                                <i class="bi bi-telephone"></i>
+                            </span>
+                            <input type="tel" 
+                                   name="phone" 
+                                   id="phone"
+                                   class="form-control border-2 border-dark"
+                                   value="{{ profile.phone|default:'' }}"
+                                   placeholder="(555) 123-4567">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Professional Information -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-info">
+                        <i class="bi bi-briefcase"></i> Professional Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="license_number" class="form-label fw-semibold">
+                                License Number
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-card-text"></i>
+                                </span>
+                                <input type="text" 
+                                       name="license_number" 
+                                       id="license_number"
+                                       class="form-control border-2 border-dark"
+                                       value="{{ profile.license_number|default:'' }}"
+                                       placeholder="Professional license number">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="specialty" class="form-label fw-semibold">
+                                Specialty
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-award"></i>
+                                </span>
+                                <select name="specialty" 
+                                        id="specialty"
+                                        class="form-select border-2 border-dark">
+                                    <option value="">-- Select Specialty --</option>
+                                    <option value="general" {% if profile.specialty == 'general' %}selected{% endif %}>General Dentistry</option>
+                                    <option value="orthodontics" {% if profile.specialty == 'orthodontics' %}selected{% endif %}>Orthodontics</option>
+                                    <option value="endodontics" {% if profile.specialty == 'endodontics' %}selected{% endif %}>Endodontics</option>
+                                    <option value="periodontics" {% if profile.specialty == 'periodontics' %}selected{% endif %}>Periodontics</option>
+                                    <option value="prosthodontics" {% if profile.specialty == 'prosthodontics' %}selected{% endif %}>Prosthodontics</option>
+                                    <option value="oral_surgery" {% if profile.specialty == 'oral_surgery' %}selected{% endif %}>Oral Surgery</option>
+                                    <option value="pediatric" {% if profile.specialty == 'pediatric' %}selected{% endif %}>Pediatric Dentistry</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="bio" class="form-label fw-semibold">
+                            Professional Bio
+                        </label>
+                        <textarea name="bio" 
+                                  id="bio"
+                                  class="form-control border-2 border-dark"
+                                  rows="4"
+                                  placeholder="Brief professional biography or description">{{ profile.bio|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Security Settings -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-shield-lock"></i> Security Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <strong>Password</strong>
+                            <br>
+                            <small class="text-muted">Last changed {{ user.password_changed|default:"Never" }}</small>
+                        </div>
+                        <a href="{% url 'dashboard:password_change' %}" class="btn btn-outline-warning border-2 border-dark">
+                            <i class="bi bi-key"></i> Change Password
+                        </a>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <strong>Two-Factor Authentication</strong>
+                            <br>
+                            <small class="text-muted">Add an extra layer of security</small>
+                        </div>
+                        <button type="button" class="btn btn-outline-info border-2 border-dark" disabled>
+                            <i class="bi bi-phone"></i> Setup 2FA
+                        </button>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Login Sessions</strong>
+                            <br>
+                            <small class="text-muted">Manage active sessions</small>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary border-2 border-dark">
+                            <i class="bi bi-list"></i> View Sessions
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="card border-2">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-outline-danger border-2 border-dark" onclick="confirmDelete()">
+                            <i class="bi bi-trash"></i> Delete Account
+                        </button>
+                        <div>
+                            <button type="reset" class="btn btn-outline-secondary border-2 border-dark me-2">
+                                <i class="bi bi-arrow-clockwise"></i> Reset
+                            </button>
+                            <button type="submit" class="btn btn-primary border-2 border-dark">
+                                <i class="bi bi-check-circle"></i> Update Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.profile-avatar-xl {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: var(--bs-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 600;
+    border: 4px solid var(--bs-dark);
+}
+
+.info-item {
+    padding: 0.5rem 0;
+}
+
+.stat-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(162, 228, 54, 0.25) !important;
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .profile-avatar-xl {
+    background-color: #c7ef86;
+    color: #000;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #2b3035 !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .input-group-text {
+    background-color: #1a1d20 !important;
+    border-color: #495057 !important;
+    color: #dee2e6 !important;
+}
+
+[data-bs-theme="dark"] .form-control:disabled {
+    background-color: #0d0f11 !important;
+}
+</style>
+
+<script>
+// Avatar upload preview
+document.getElementById('avatarUpload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // In a real implementation, this would upload to server
+            showNotification('Avatar upload feature coming soon', 'info');
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+function confirmDelete() {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        showNotification('Account deletion requires admin approval', 'warning');
+    }
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} border-2 border-dark position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.innerHTML = `<i class="bi bi-info-circle"></i> ${message}`;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+}
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const requiredFields = this.querySelectorAll('[required]');
+    let isValid = true;
+    
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+            field.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            field.classList.remove('is-invalid');
+        }
+    });
+    
+    if (!isValid) {
+        e.preventDefault();
+        showNotification('Please fill in all required fields', 'danger');
+    }
+});
+</script>
+{% endblock %}

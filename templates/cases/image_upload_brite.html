@@ -1,0 +1,735 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - DCPlant{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-preview {
+        border: 3px dashed var(--bs-dark);
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        background-color: #f8f9fa;
+        min-height: 200px;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .file-preview.dragover {
+        border-color: var(--bs-primary);
+        background-color: rgba(162, 228, 54, 0.1);
+        transform: scale(1.02);
+    }
+    
+    .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1.25rem;
+        margin-top: 1.5rem;
+    }
+    
+    .preview-item {
+        position: relative;
+        border: 2px solid var(--bs-dark);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: white;
+        transition: transform 0.2s ease;
+    }
+    
+    .preview-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .preview-item img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-bottom: 2px solid var(--bs-dark);
+    }
+    
+    .preview-item .file-info {
+        padding: 0.75rem;
+        font-size: 0.875rem;
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+        font-weight: 500;
+    }
+    
+    .preview-item .remove-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: var(--bs-danger);
+        border: 2px solid var(--bs-dark);
+        color: white;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        transition: transform 0.2s ease;
+    }
+    
+    .preview-item .remove-btn:hover {
+        transform: scale(1.1);
+        background: var(--bs-dark);
+        color: var(--bs-danger);
+    }
+    
+    .progress-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .progress-box {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 0.5rem;
+        min-width: 450px;
+        text-align: center;
+        border: 3px solid var(--bs-primary);
+    }
+    
+    .upload-icon {
+        font-size: 4rem;
+        color: var(--bs-primary);
+        margin-bottom: 1rem;
+    }
+    
+    .drop-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--bs-dark);
+        margin-bottom: 0.5rem;
+    }
+    
+    .drop-subtext {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .browse-button {
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+        border: 2px solid var(--bs-dark);
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    
+    .browse-button:hover {
+        transform: scale(1.05);
+    }
+    
+    .tips-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .tips-list li {
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        background: var(--bs-primary);
+        border: 2px solid var(--bs-dark);
+        border-radius: 0.5rem;
+        color: var(--bs-dark);
+        font-weight: 500;
+    }
+    
+    .tips-list li i {
+        margin-right: 0.5rem;
+        color: var(--bs-dark);
+    }
+    
+    .file-count-badge {
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+        border: 2px solid var(--bs-dark);
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    /* Dark mode support */
+    [data-bs-theme="dark"] .file-preview {
+        background-color: #2b3035;
+        border-color: #495057;
+    }
+    
+    [data-bs-theme="dark"] .preview-item {
+        background-color: #2b3035;
+        border-color: #495057;
+    }
+    
+    [data-bs-theme="dark"] .preview-item .file-info {
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+    }
+    
+    [data-bs-theme="dark"] .progress-box {
+        background-color: #2b3035;
+        color: #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb border-2 border-dark">
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' case.pk %}">{{ case.case_number }}</a></li>
+                <li class="breadcrumb-item active">Upload Images</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="page-title">
+            <i class="bi bi-cloud-upload"></i> {{ title }}
+        </h1>
+        <p class="text-muted">Upload multiple images at once for faster processing</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="post" enctype="multipart/form-data" id="imageUploadForm">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger border-2 border-dark mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+            
+            <!-- File Upload Area -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-primary text-dark border-2 border-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-images"></i> Select Files
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="file-preview" id="filePreview">
+                        <div id="dropZone">
+                            <i class="bi bi-cloud-upload upload-icon"></i>
+                            <p class="drop-text">Drag & Drop Your Files Here</p>
+                            <p class="drop-subtext">or click the button below to browse</p>
+                            <label for="{{ form.images.id_for_label }}" class="browse-button">
+                                <i class="bi bi-folder2-open"></i> Browse Files
+                            </label>
+                            {{ form.images }}
+                            <div class="mt-3">
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-check-circle text-success"></i> Accepted: JPG, PNG, GIF, DICOM
+                                </small>
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-info-circle text-info"></i> Max size: 20MB per file
+                                </small>
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-files text-primary"></i> Max files: 800 at once
+                                </small>
+                            </div>
+                        </div>
+                        <div id="previewContainer" class="preview-grid" style="display: none;"></div>
+                    </div>
+                    {% if form.images.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.images.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- File Count Info -->
+            <div class="alert alert-info border-2 border-dark mb-4" id="fileCountInfo" style="display: none;">
+                <i class="bi bi-info-circle"></i> 
+                <span class="file-count-badge ms-2">
+                    <span id="fileCount">0</span> file(s) selected
+                </span>
+            </div>
+            
+            <!-- Upload Settings -->
+            <div class="card border-2 mb-4">
+                <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                    <h5 class="mb-0 text-info">
+                        <i class="bi bi-gear"></i> Upload Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.image_type.id_for_label }}" class="form-label fw-semibold">
+                                Image Type <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-file-earmark-image"></i>
+                                </span>
+                                {{ form.image_type }}
+                            </div>
+                            {% if form.image_type.help_text %}
+                            <small class="text-muted">{{ form.image_type.help_text }}</small>
+                            {% endif %}
+                            {% if form.image_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.image_type.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.taken_date.id_for_label }}" class="form-label fw-semibold">
+                                Date Taken
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-calendar3"></i>
+                                </span>
+                                {{ form.taken_date }}
+                            </div>
+                            {% if form.taken_date.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.taken_date.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.title_prefix.id_for_label }}" class="form-label fw-semibold">
+                            Title Prefix
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text border-2 border-dark">
+                                <i class="bi bi-type"></i>
+                            </span>
+                            {{ form.title_prefix }}
+                        </div>
+                        {% if form.title_prefix.help_text %}
+                        <small class="text-muted">{{ form.title_prefix.help_text }}</small>
+                        {% endif %}
+                        {% if form.title_prefix.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.title_prefix.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label fw-semibold">
+                            Description
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text border-2 border-dark align-self-start pt-2">
+                                <i class="bi bi-text-paragraph"></i>
+                            </span>
+                            {{ form.description }}
+                        </div>
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.description.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-check form-check-lg">
+                        {{ form.is_deidentified }}
+                        <label class="form-check-label fw-semibold" for="{{ form.is_deidentified.id_for_label }}">
+                            <i class="bi bi-shield-check text-success"></i>
+                            {{ form.is_deidentified.label }}
+                        </label>
+                        {% if form.is_deidentified.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.is_deidentified.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="card border-2">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-secondary border-2 border-dark">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary border-2 border-dark" id="uploadBtn">
+                            <i class="bi bi-cloud-upload"></i> Upload Images
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Upload Tips -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-warning">
+                    <i class="bi bi-lightbulb"></i> Upload Tips
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="tips-list">
+                    <li>
+                        <i class="bi bi-mouse2"></i>
+                        <strong>Multiple Selection:</strong> Hold Ctrl/Cmd to select multiple files
+                    </li>
+                    <li>
+                        <i class="bi bi-arrows-move"></i>
+                        <strong>Drag & Drop:</strong> Drag files directly from your file explorer
+                    </li>
+                    <li>
+                        <i class="bi bi-stack"></i>
+                        <strong>Batch Processing:</strong> All files use the same settings
+                    </li>
+                    <li>
+                        <i class="bi bi-sort-numeric-up"></i>
+                        <strong>Auto Numbering:</strong> Files are numbered automatically
+                    </li>
+                    <li>
+                        <i class="bi bi-file-earmark-medical"></i>
+                        <strong>DICOM Support:</strong> Built-in viewer for medical images
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- File Formats -->
+        <div class="card border-2">
+            <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-info">
+                    <i class="bi bi-file-earmark-check"></i> Supported Formats
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-primary text-dark border-2 border-dark">JPG/JPEG</span>
+                    <span class="badge bg-primary text-dark border-2 border-dark">PNG</span>
+                    <span class="badge bg-primary text-dark border-2 border-dark">GIF</span>
+                    <span class="badge bg-info text-dark border-2 border-dark">DICOM (.dcm)</span>
+                    <span class="badge bg-info text-dark border-2 border-dark">DICOM (.dicom)</span>
+                </div>
+                <hr class="border-2 border-dark">
+                <p class="mb-0 text-muted small">
+                    <i class="bi bi-info-circle"></i> 
+                    Maximum file size: <strong>20MB</strong> per file<br>
+                    Maximum upload: <strong>800 files</strong> at once
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Overlay -->
+<div class="progress-overlay" id="progressOverlay">
+    <div class="progress-box">
+        <h4 class="mb-3 text-primary">
+            <i class="bi bi-cloud-arrow-up"></i> Uploading Images
+        </h4>
+        <div class="progress border-2 border-dark mb-3" style="height: 35px;">
+            <div class="progress-bar bg-primary text-dark fw-bold progress-bar-striped progress-bar-animated" 
+                 role="progressbar" id="uploadProgress" 
+                 style="width: 0%; font-size: 1rem;">0%</div>
+        </div>
+        <p class="mb-0 fw-semibold" id="uploadStatus">Preparing upload...</p>
+    </div>
+</div>
+
+<style>
+.form-check-lg .form-check-input {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.125rem;
+    border: 2px solid var(--bs-dark);
+}
+
+.form-check-lg .form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-dark);
+}
+
+#{{ form.images.id_for_label }} {
+    display: none;
+}
+
+.form-control, .form-select {
+    border: 2px solid var(--bs-dark) !important;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(162, 228, 54, 0.25) !important;
+}
+</style>
+
+<script>
+let selectedFiles = [];
+const maxFileSize = 20 * 1024 * 1024; // 20MB
+const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/dicom'];
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.dcm', '.dicom'];
+
+// File input element
+const fileInput = document.getElementById('{{ form.images.id_for_label }}');
+const dropZone = document.getElementById('dropZone');
+const filePreview = document.getElementById('filePreview');
+const previewContainer = document.getElementById('previewContainer');
+const uploadForm = document.getElementById('imageUploadForm');
+
+// Make browse button trigger file input
+document.querySelector('.browse-button').addEventListener('click', function(e) {
+    e.preventDefault();
+    fileInput.click();
+});
+
+// Drag and drop handlers
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    filePreview.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    filePreview.addEventListener(eventName, () => {
+        filePreview.classList.add('dragover');
+    }, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    filePreview.addEventListener(eventName, () => {
+        filePreview.classList.remove('dragover');
+    }, false);
+});
+
+filePreview.addEventListener('drop', handleDrop, false);
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+}
+
+// File input change handler
+fileInput.addEventListener('change', function(e) {
+    handleFiles(e.target.files);
+});
+
+function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    
+    // Validate files
+    let validFiles = [];
+    for (let file of selectedFiles) {
+        if (validateFile(file)) {
+            validFiles.push(file);
+        }
+    }
+    
+    selectedFiles = validFiles;
+    
+    // Update the file input with the selected files
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    fileInput.files = dt.files;
+    
+    updateFileCount();
+    displayPreviews();
+}
+
+function validateFile(file) {
+    // Check file size
+    if (file.size > maxFileSize) {
+        alert(`File "${file.name}" exceeds 20MB limit`);
+        return false;
+    }
+    
+    // Check file type
+    const extension = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedExtensions.includes(extension)) {
+        alert(`File "${file.name}" has unsupported format`);
+        return false;
+    }
+    
+    return true;
+}
+
+function updateFileCount() {
+    const fileCountInfo = document.getElementById('fileCountInfo');
+    const fileCount = document.getElementById('fileCount');
+    
+    if (selectedFiles.length > 0) {
+        fileCountInfo.style.display = 'block';
+        fileCount.textContent = selectedFiles.length;
+    } else {
+        fileCountInfo.style.display = 'none';
+    }
+}
+
+function displayPreviews() {
+    previewContainer.innerHTML = '';
+    
+    if (selectedFiles.length > 0) {
+        dropZone.style.display = 'none';
+        previewContainer.style.display = 'grid';
+        
+        // Add a clear all button
+        const clearBtn = document.createElement('div');
+        clearBtn.className = 'preview-item';
+        clearBtn.style.cursor = 'pointer';
+        clearBtn.style.background = 'var(--bs-danger)';
+        clearBtn.style.display = 'flex';
+        clearBtn.style.flexDirection = 'column';
+        clearBtn.style.alignItems = 'center';
+        clearBtn.style.justifyContent = 'center';
+        clearBtn.style.minHeight = '200px';
+        clearBtn.innerHTML = `
+            <i class="bi bi-trash3 text-white" style="font-size: 3rem;"></i>
+            <p class="text-white fw-bold mt-2">Clear All</p>
+        `;
+        clearBtn.onclick = clearAllFiles;
+        
+        selectedFiles.forEach((file, index) => {
+            const previewItem = createPreviewItem(file, index);
+            previewContainer.appendChild(previewItem);
+        });
+        
+        previewContainer.appendChild(clearBtn);
+    } else {
+        dropZone.style.display = 'block';
+        previewContainer.style.display = 'none';
+    }
+}
+
+function createPreviewItem(file, index) {
+    const div = document.createElement('div');
+    div.className = 'preview-item';
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-btn';
+    removeBtn.innerHTML = '×';
+    removeBtn.onclick = () => removeFile(index);
+    
+    const extension = file.name.split('.').pop().toLowerCase();
+    
+    if (extension === 'dcm' || extension === 'dicom') {
+        // DICOM file preview
+        div.innerHTML = `
+            <div style="height: 150px; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                <i class="bi bi-file-earmark-medical" style="font-size: 4rem; color: var(--bs-info);"></i>
+            </div>
+            <div class="file-info">
+                <div class="text-truncate fw-bold">${file.name}</div>
+                <div class="small">${formatFileSize(file.size)}</div>
+            </div>
+        `;
+    } else {
+        // Image file preview
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        div.appendChild(img);
+        
+        const info = document.createElement('div');
+        info.className = 'file-info';
+        info.innerHTML = `
+            <div class="text-truncate fw-bold">${file.name}</div>
+            <div class="small">${formatFileSize(file.size)}</div>
+        `;
+        div.appendChild(info);
+    }
+    
+    div.appendChild(removeBtn);
+    return div;
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateFileCount();
+    displayPreviews();
+    
+    // Reset file input
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    fileInput.files = dt.files;
+}
+
+function clearAllFiles() {
+    selectedFiles = [];
+    fileInput.value = '';
+    updateFileCount();
+    displayPreviews();
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Form submission with progress
+uploadForm.addEventListener('submit', function(e) {
+    // Check if files are selected (either through our UI or directly)
+    const hasFiles = fileInput.files && fileInput.files.length > 0;
+    
+    if (!hasFiles) {
+        e.preventDefault();
+        alert('Please select at least one file to upload');
+        return false;
+    }
+    
+    // Show progress overlay
+    const progressOverlay = document.getElementById('progressOverlay');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadStatus = document.getElementById('uploadStatus');
+    
+    progressOverlay.style.display = 'flex';
+    uploadStatus.textContent = `Uploading ${fileInput.files.length} file(s)...`;
+    
+    // Simulate progress (actual progress tracking would require AJAX)
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 10;
+        if (progress <= 90) {
+            uploadProgress.style.width = progress + '%';
+            uploadProgress.textContent = progress + '%';
+        }
+    }, 200);
+    
+    // Form will submit normally
+});
+</script>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}Share Case - {{ case.case_number }} - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' case.pk %}">{{ case.case_number }}</a></li>
+                <li class="breadcrumb-item active">Share</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card border-2">
+            <div class="card-header bg-primary text-dark border-2 border-dark">
+                <h4 class="mb-0">
+                    <i class="bi bi-share"></i> Share Case: {{ case.case_number }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Case Information -->
+                <div class="alert alert-info border-2 border-dark">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-info-circle"></i> Case Information
+                    </h6>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Patient:</strong> {{ case.patient.full_name }}<br>
+                            <strong>Chief Complaint:</strong> {{ case.chief_complaint|truncatechars:50 }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong> 
+                            <span class="badge bg-{% if case.status == 'COMPLETED' %}success{% elif case.status == 'ACTIVE' %}primary{% else %}secondary{% endif %} border-2 border-dark">
+                                {{ case.get_status_display }}
+                            </span><br>
+                            <strong>Created:</strong> {{ case.created_at|date:"M d, Y" }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sharing Form -->
+                <form method="post" action="{% url 'cases:case_share' case.pk %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <h5 class="mb-3">
+                            <i class="bi bi-building"></i> Select Organizations to Share With
+                        </h5>
+                        
+                        {% if all_organizations %}
+                            <div class="alert alert-warning border-2 border-dark mb-3">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Important:</strong> Sharing this case will make it visible to all dentists in the selected organizations.
+                                Patient information will be accessible to authorized personnel only.
+                            </div>
+                            
+                            <div class="organization-list">
+                                {% for org in all_organizations %}
+                                <div class="form-check mb-3 p-3 border rounded border-2">
+                                    <input class="form-check-input border-2 border-dark" 
+                                           type="checkbox" 
+                                           name="organizations" 
+                                           value="{{ org.id }}" 
+                                           id="org_{{ org.id }}"
+                                           {% if org in shared_organizations %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="org_{{ org.id }}">
+                                        <strong>{{ org.name }}</strong>
+                                        <span class="badge bg-secondary ms-2">{{ org.get_org_type_display }}</span>
+                                        {% if org.users.count %}
+                                            <small class="d-block text-muted mt-1">
+                                                <i class="bi bi-people"></i> {{ org.users.count }} user{{ org.users.count|pluralize }}
+                                            </small>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="form-check mt-3">
+                                <input class="form-check-input border-2 border-dark" 
+                                       type="checkbox" 
+                                       id="selectAll">
+                                <label class="form-check-label" for="selectAll">
+                                    <strong>Select All Organizations</strong>
+                                </label>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info border-2 border-dark">
+                                <i class="bi bi-info-circle"></i>
+                                No other organizations available for sharing.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Current Sharing Status -->
+                    {% if case.is_shared and shared_organizations %}
+                    <div class="alert alert-success border-2 border-dark">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-check-circle"></i> Currently Shared With:
+                        </h6>
+                        <ul class="mb-0">
+                            {% for org in shared_organizations %}
+                            <li>{{ org.name }} ({{ org.get_org_type_display }})</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'cases:case_detail' case.pk %}" 
+                           class="btn btn-secondary border-2 border-dark">
+                            <i class="bi bi-arrow-left"></i> Back to Case
+                        </a>
+                        <div>
+                            {% if case.is_shared %}
+                            <button type="submit" name="cancel_sharing" value="1"
+                                    class="btn btn-danger border-2 border-dark me-2"
+                                    onclick="return confirm('Are you sure you want to cancel all sharing for this case? This will remove access for all shared organizations.')">
+                                <i class="bi bi-x-circle"></i> Cancel All Sharing
+                            </button>
+                            {% endif %}
+                            <button type="submit" name="update_sharing" value="1" 
+                                    class="btn btn-primary border-2 border-dark">
+                                <i class="bi bi-share"></i> {% if case.is_shared %}Update{% else %}Share{% endif %} Case
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sharing Guidelines -->
+        <div class="card border-2 mt-4">
+            <div class="card-header bg-light border-2 border-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-shield-check"></i> Sharing Guidelines
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>Patient Privacy:</strong> Ensure patient consent before sharing cases</li>
+                    <li><strong>De-identification:</strong> Consider removing identifying information when appropriate</li>
+                    <li><strong>Access Control:</strong> Only authorized dentists in shared organizations can view the case</li>
+                    <li><strong>Activity Tracking:</strong> All sharing actions are logged for audit purposes</li>
+                    <li><strong>Revocation:</strong> You can remove sharing at any time</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.organization-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-dark);
+}
+</style>
+
+<script>
+// Select/Deselect all organizations
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('input[name="organizations"]');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+
+// Update select all checkbox based on individual selections
+document.querySelectorAll('input[name="organizations"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+        const total = document.querySelectorAll('input[name="organizations"]').length;
+        const checked = document.querySelectorAll('input[name="organizations"]:checked').length;
+        document.getElementById('selectAll').checked = total === checked;
+    });
+});
+</script>
+{% endblock %}

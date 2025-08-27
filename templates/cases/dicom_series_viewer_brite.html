@@ -1,0 +1,984 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}CBCT Series Viewer - {{ case.case_number }} - DCPlant{% endblock %}
+
+{% block extra_css %}
+<style>
+    #dicomViewer {
+        width: 100%;
+        height: 700px;
+        background-color: black;
+        position: relative;
+        cursor: crosshair;
+        border: 3px solid var(--bs-dark);
+        border-radius: 0.5rem;
+    }
+    
+    .viewer-controls {
+        background: var(--bs-primary);
+        padding: 1.25rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        border: 3px solid var(--bs-dark);
+    }
+    
+    .viewer-controls .btn {
+        margin: 0 5px;
+        border: 2px solid var(--bs-dark) !important;
+        font-weight: 600;
+    }
+    
+    .slice-controls {
+        background: linear-gradient(135deg, var(--bs-dark) 0%, #495057 100%);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        color: white;
+        border: 3px solid var(--bs-dark);
+    }
+    
+    .slice-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    
+    #sliceSlider {
+        width: 100%;
+        height: 8px;
+        background: var(--bs-dark);
+        border-radius: 5px;
+        outline: none;
+    }
+    
+    #sliceSlider::-webkit-slider-thumb {
+        appearance: none;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: var(--bs-primary);
+        border: 3px solid var(--bs-dark);
+        cursor: pointer;
+    }
+    
+    #sliceSlider::-moz-range-thumb {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: var(--bs-primary);
+        border: 3px solid var(--bs-dark);
+        cursor: pointer;
+    }
+    
+    .viewer-info {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        height: 700px;
+        overflow-y: auto;
+        border: 3px solid var(--bs-dark);
+    }
+    
+    .tool-active {
+        background-color: var(--bs-primary) !important;
+        color: var(--bs-dark) !important;
+        transform: scale(1.05);
+    }
+    
+    #loadingIndicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: var(--bs-primary);
+        font-size: 1.5rem;
+        z-index: 1000;
+        text-align: center;
+    }
+    
+    .spinner-border {
+        width: 4rem;
+        height: 4rem;
+        border-width: 0.5rem;
+        border-color: var(--bs-primary);
+        border-right-color: transparent;
+    }
+    
+    .progress {
+        height: 8px;
+        background-color: var(--bs-dark);
+        border: 2px solid var(--bs-dark);
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        background: linear-gradient(90deg, var(--bs-primary) 0%, #8bc34a 100%);
+        transition: width 0.3s ease;
+    }
+    
+    .viewport-orientation {
+        position: absolute;
+        color: var(--bs-primary);
+        font-size: 16px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+        background: rgba(0,0,0,0.7);
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: 2px solid var(--bs-primary);
+    }
+    
+    .orientation-top { top: 15px; left: 50%; transform: translateX(-50%); }
+    .orientation-bottom { bottom: 15px; left: 50%; transform: translateX(-50%); }
+    .orientation-left { left: 15px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+    .orientation-right { right: 15px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+    
+    .mpr-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-gap: 15px;
+        height: 700px;
+    }
+    
+    .mpr-viewport {
+        background: black;
+        position: relative;
+        border: 3px solid var(--bs-dark);
+        border-radius: 0.5rem;
+        transition: transform 0.2s ease;
+    }
+    
+    .mpr-viewport:hover {
+        transform: scale(1.02);
+        border-color: var(--bs-primary);
+    }
+    
+    .mpr-label {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        color: var(--bs-primary);
+        font-weight: bold;
+        background: rgba(0,0,0,0.8);
+        padding: 8px 15px;
+        border-radius: 5px;
+        border: 2px solid var(--bs-primary);
+        font-size: 1rem;
+    }
+    
+    .window-preset-btn {
+        background: white;
+        color: var(--bs-dark);
+        border: 2px solid var(--bs-dark);
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    
+    .window-preset-btn:hover {
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+        transform: translateX(5px);
+    }
+    
+    .measurements-box {
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 2px solid var(--bs-dark);
+        font-weight: 500;
+    }
+    
+    .shortcut-key {
+        background: var(--bs-dark);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-family: monospace;
+        font-weight: bold;
+        display: inline-block;
+        margin: 0.25rem;
+    }
+    
+    .info-section {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        border: 2px solid #dee2e6;
+    }
+    
+    .info-section h6 {
+        color: var(--bs-dark);
+        font-weight: bold;
+        border-bottom: 2px solid var(--bs-primary);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Dark mode adjustments */
+    [data-bs-theme="dark"] .viewer-info {
+        background-color: #2b3035;
+        color: #dee2e6;
+    }
+    
+    [data-bs-theme="dark"] .info-section {
+        background: #1a1d20;
+        border-color: #495057;
+    }
+    
+    [data-bs-theme="dark"] .window-preset-btn {
+        background: #2b3035;
+        color: #dee2e6;
+    }
+    
+    [data-bs-theme="dark"] .window-preset-btn:hover {
+        background: var(--bs-primary);
+        color: var(--bs-dark);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb border-2 border-dark">
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' case.pk %}">{{ case.case_number }}</a></li>
+                <li class="breadcrumb-item active">CBCT Series Viewer</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="bi bi-stack"></i> CBCT Series Viewer
+                </h1>
+                <p class="text-muted mb-0">
+                    <strong>{{ case.patient.full_name }}</strong> • 
+                    <span class="badge bg-primary text-dark border-2 border-dark">{{ total_slices }} slices</span>
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-secondary border-2 border-dark">
+                    <i class="bi bi-arrow-left"></i> Back to Case
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Viewer Controls -->
+<div class="viewer-controls">
+    <div class="row align-items-center">
+        <div class="col-md-7">
+            <div class="btn-group" role="group">
+                <button class="btn btn-dark tool-btn tool-active" data-tool="wwwc" title="Window/Level">
+                    <i class="bi bi-brightness-high"></i> W/L
+                </button>
+                <button class="btn btn-outline-dark tool-btn" data-tool="pan" title="Pan">
+                    <i class="bi bi-arrows-move"></i> Pan
+                </button>
+                <button class="btn btn-outline-dark tool-btn" data-tool="zoom" title="Zoom">
+                    <i class="bi bi-zoom-in"></i> Zoom
+                </button>
+                <button class="btn btn-outline-dark tool-btn" data-tool="length" title="Measure">
+                    <i class="bi bi-rulers"></i> Measure
+                </button>
+                <button class="btn btn-outline-dark tool-btn" data-tool="angle" title="Angle">
+                    <i class="bi bi-triangle"></i> Angle
+                </button>
+                <button class="btn btn-outline-dark tool-btn" data-tool="probe" title="Probe">
+                    <i class="bi bi-crosshair"></i> Probe
+                </button>
+            </div>
+        </div>
+        <div class="col-md-5 text-end">
+            <button class="btn btn-warning" onclick="resetViewport()">
+                <i class="bi bi-arrow-clockwise"></i> Reset
+            </button>
+            <button class="btn btn-info" onclick="toggleMPR()">
+                <i class="bi bi-grid-3x3"></i> MPR View
+            </button>
+            <button class="btn btn-success" onclick="playStack()" id="playButton">
+                <i class="bi bi-play-fill"></i> Play
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Slice Controls -->
+<div class="slice-controls">
+    <div class="slice-info">
+        <span>
+            <i class="bi bi-layers"></i> 
+            Slice: <strong id="currentSlice" style="font-size: 1.25rem;">1</strong> / {{ total_slices }}
+        </span>
+        <span>
+            <i class="bi bi-file-earmark-medical"></i> 
+            File: <strong id="currentFilename" class="text-primary">-</strong>
+        </span>
+        <span>
+            <i class="bi bi-mouse2"></i> Use mouse wheel to scroll
+        </span>
+        <span id="sliceLocation" class="badge bg-dark text-light"></span>
+    </div>
+    <input type="range" class="form-range" id="sliceSlider" min="0" max="{{ total_slices|add:'-1' }}" value="0">
+    <div class="progress mt-3">
+        <div class="progress-bar" id="loadProgress" style="width: 0%"></div>
+    </div>
+</div>
+
+<!-- Main Viewer Area -->
+<div class="row">
+    <div class="col-lg-9">
+        <div id="viewerContainer">
+            <!-- Standard View -->
+            <div id="standardView">
+                <div id="dicomViewer">
+                    <div id="loadingIndicator">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading CBCT series...</span>
+                        </div>
+                        <p class="mt-3 fw-bold">Loading {{ total_slices }} slices...</p>
+                        <p class="small">Please wait while we prepare your images</p>
+                    </div>
+                    <!-- Orientation markers -->
+                    <div class="viewport-orientation orientation-top">ANTERIOR</div>
+                    <div class="viewport-orientation orientation-bottom">POSTERIOR</div>
+                    <div class="viewport-orientation orientation-left">RIGHT</div>
+                    <div class="viewport-orientation orientation-right">LEFT</div>
+                </div>
+            </div>
+            
+            <!-- MPR View (hidden by default) -->
+            <div id="mprView" style="display: none;">
+                <div class="mpr-container">
+                    <div class="mpr-viewport" id="axialViewport">
+                        <div class="mpr-label">
+                            <i class="bi bi-circle"></i> Axial
+                        </div>
+                    </div>
+                    <div class="mpr-viewport" id="sagittalViewport">
+                        <div class="mpr-label">
+                            <i class="bi bi-arrow-left-right"></i> Sagittal
+                        </div>
+                    </div>
+                    <div class="mpr-viewport" id="coronalViewport">
+                        <div class="mpr-label">
+                            <i class="bi bi-arrow-up-down"></i> Coronal
+                        </div>
+                    </div>
+                    <div class="mpr-viewport" id="3dViewport">
+                        <div class="mpr-label">
+                            <i class="bi bi-box"></i> 3D MIP
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3">
+        <div class="viewer-info">
+            <!-- Series Information -->
+            <div class="info-section">
+                <h6><i class="bi bi-info-circle"></i> Series Information</h6>
+                <dl class="row mb-0">
+                    <dt class="col-6">Patient:</dt>
+                    <dd class="col-6 fw-bold">{{ case.patient.full_name }}</dd>
+                    
+                    <dt class="col-6">Case:</dt>
+                    <dd class="col-6 fw-bold text-primary">{{ case.case_number }}</dd>
+                    
+                    <dt class="col-6">Total Slices:</dt>
+                    <dd class="col-6"><span class="badge bg-primary text-dark">{{ total_slices }}</span></dd>
+                    
+                    <dt class="col-6">Modality:</dt>
+                    <dd class="col-6" id="modality">CBCT</dd>
+                    
+                    <dt class="col-6">Study Date:</dt>
+                    <dd class="col-6" id="studyDate">-</dd>
+                    
+                    <dt class="col-6">Thickness:</dt>
+                    <dd class="col-6" id="sliceThickness">-</dd>
+                    
+                    <dt class="col-6">Spacing:</dt>
+                    <dd class="col-6" id="pixelSpacing">-</dd>
+                </dl>
+            </div>
+            
+            <!-- Window Presets -->
+            <div class="info-section">
+                <h6><i class="bi bi-sliders"></i> Window Presets</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn window-preset-btn" onclick="setWindowPreset('bone')">
+                        <i class="bi bi-heart-pulse"></i> Bone
+                    </button>
+                    <button class="btn window-preset-btn" onclick="setWindowPreset('soft')">
+                        <i class="bi bi-droplet"></i> Soft Tissue
+                    </button>
+                    <button class="btn window-preset-btn" onclick="setWindowPreset('dental')">
+                        <i class="bi bi-emoji-smile"></i> Dental
+                    </button>
+                    <button class="btn window-preset-btn" onclick="setWindowPreset('lung')">
+                        <i class="bi bi-lungs"></i> Lung
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Measurements -->
+            <div class="info-section">
+                <h6><i class="bi bi-rulers"></i> Measurements</h6>
+                <div id="measurements" class="measurements-box">
+                    <p class="mb-0 text-center">No measurements yet</p>
+                </div>
+            </div>
+            
+            <!-- Keyboard Shortcuts -->
+            <div class="info-section">
+                <h6><i class="bi bi-keyboard"></i> Shortcuts</h6>
+                <div class="small">
+                    <div class="mb-2">
+                        <span class="shortcut-key">↑/↓</span> Navigate slices
+                    </div>
+                    <div class="mb-2">
+                        <span class="shortcut-key">Wheel</span> Scroll slices
+                    </div>
+                    <div class="mb-2">
+                        <span class="shortcut-key">Space</span> Play/Pause
+                    </div>
+                    <div class="mb-2">
+                        <span class="shortcut-key">R</span> Reset view
+                    </div>
+                    <div>
+                        <span class="shortcut-key">M</span> Toggle MPR
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Cornerstone.js libraries -->
+<script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+<script src="https://unpkg.com/cornerstone-math@0.1.10/dist/cornerstoneMath.min.js"></script>
+<script src="https://unpkg.com/cornerstone-tools@6.0.0/dist/cornerstoneTools.min.js"></script>
+<script src="https://unpkg.com/cornerstone-wado-image-loader@4.1.5/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+<script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+<script src="https://unpkg.com/hammerjs@2.0.8/hammer.min.js"></script>
+
+<script>
+// Configure Cornerstone
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+cornerstoneTools.external.cornerstone = cornerstone;
+cornerstoneTools.external.Hammer = Hammer;
+cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+
+// Initialize
+cornerstoneTools.init();
+
+// Get DOM elements first
+const element = document.getElementById('dicomViewer');
+const sliceSlider = document.getElementById('sliceSlider');
+
+// Stack state
+let stack = {
+    currentImageIdIndex: 0,
+    imageIds: []
+};
+let isPlaying = false;
+let playInterval;
+
+// Prepare image URLs
+const imageUrls = {{ image_urls|safe }};
+const totalSlices = {{ total_slices }};
+
+// Convert URLs to Cornerstone image IDs
+imageUrls.forEach(url => {
+    // Create full URL
+    const fullUrl = window.location.origin + url;
+    const imageId = 'wadouri:' + fullUrl;
+    stack.imageIds.push(imageId);
+});
+
+// Initialize viewer after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeViewer();
+});
+
+function initializeViewer() {
+    // Enable the viewport
+    cornerstone.enable(element);
+
+    // Add tools first
+    cornerstoneTools.addTool(cornerstoneTools.StackScrollMouseWheelTool);
+    cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
+    cornerstoneTools.addTool(cornerstoneTools.PanTool);
+    cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+    cornerstoneTools.addTool(cornerstoneTools.LengthTool);
+    cornerstoneTools.addTool(cornerstoneTools.AngleTool);
+    cornerstoneTools.addTool(cornerstoneTools.ProbeTool);
+
+    // Load and display the first image, then set up stack
+    loadAndDisplayImage(0);
+
+    // Tool button handlers
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tool = this.dataset.tool;
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tool-btn').forEach(b => {
+                b.classList.remove('tool-active', 'btn-dark');
+                b.classList.add('btn-outline-dark');
+            });
+            this.classList.add('tool-active', 'btn-dark');
+            this.classList.remove('btn-outline-dark');
+            
+            // Deactivate all tools
+            cornerstoneTools.setToolPassive('Wwwc');
+            cornerstoneTools.setToolPassive('Pan');
+            cornerstoneTools.setToolPassive('Zoom');
+            cornerstoneTools.setToolPassive('Length');
+            cornerstoneTools.setToolPassive('Angle');
+            cornerstoneTools.setToolPassive('Probe');
+            
+            // Activate selected tool
+            const toolMap = {
+                'wwwc': 'Wwwc',
+                'pan': 'Pan',
+                'zoom': 'Zoom',
+                'length': 'Length',
+                'angle': 'Angle',
+                'probe': 'Probe'
+            };
+            
+            if (toolMap[tool]) {
+                cornerstoneTools.setToolActive(toolMap[tool], { mouseButtonMask: 1 });
+            }
+        });
+    });
+
+    // Slice slider handler
+    sliceSlider.addEventListener('input', function() {
+        const index = parseInt(this.value);
+        loadAndDisplayImage(index);
+    });
+}
+
+// Load and display image function
+function loadAndDisplayImage(index) {
+    if (index < 0 || index >= stack.imageIds.length) return;
+    
+    stack.currentImageIdIndex = index;
+    const imageId = stack.imageIds[index];
+    
+    // Extract filename from URL
+    const url = imageUrls[index];
+    const filename = url.split('/').pop();
+    
+    // Update UI
+    document.getElementById('currentSlice').textContent = index + 1;
+    document.getElementById('currentFilename').textContent = filename;
+    sliceSlider.value = index;
+    
+    // Load progress
+    const progress = ((index + 1) / totalSlices) * 100;
+    document.getElementById('loadProgress').style.width = progress + '%';
+    
+    // Update MPR views if enabled
+    if (mprEnabled) {
+        updateMPRViews();
+    }
+    
+    // Load and display image
+    cornerstone.loadAndCacheImage(imageId).then(function(image) {
+        cornerstone.displayImage(element, image);
+        
+        // Set up the stack state for proper scrolling
+        if (index === 0) {
+            // First time setup - configure stack state
+            cornerstoneTools.addStackStateManager(element, ['stack']);
+            cornerstoneTools.addToolState(element, 'stack', stack);
+            
+            // Now activate the stack scroll tool
+            cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
+            
+            // Set default tool for mouse interaction
+            cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 1 });
+            
+            // Add event listener for stack scroll to update our UI
+            element.addEventListener('cornerstonenewimage', function(e) {
+                const eventData = e.detail;
+                if (eventData && eventData.enabledElement) {
+                    const stackData = cornerstoneTools.getToolState(element, 'stack');
+                    if (stackData && stackData.data && stackData.data[0]) {
+                        const currentIndex = stackData.data[0].currentImageIdIndex;
+                        // Update UI elements
+                        document.getElementById('currentSlice').textContent = currentIndex + 1;
+                        document.getElementById('sliceSlider').value = currentIndex;
+                        stack.currentImageIdIndex = currentIndex;
+                        
+                        // Extract and display filename
+                        const url = imageUrls[currentIndex];
+                        const filename = url.split('/').pop();
+                        document.getElementById('currentFilename').textContent = filename;
+                        
+                        // Update progress
+                        const progress = ((currentIndex + 1) / totalSlices) * 100;
+                        document.getElementById('loadProgress').style.width = progress + '%';
+                    }
+                }
+            });
+        }
+        
+        // Hide loading indicator after first image
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        
+        // Apply dental window preset by default
+        const viewport = cornerstone.getViewport(element);
+        viewport.voi.windowWidth = 2800;
+        viewport.voi.windowCenter = 1000;
+        cornerstone.setViewport(element, viewport);
+        
+        // Update metadata if available
+        updateMetadata(imageId);
+    }).catch(function(err) {
+        console.error('Error loading image:', err);
+    });
+}
+
+// Update metadata display
+function updateMetadata(imageId) {
+    try {
+        const metadata = cornerstoneWADOImageLoader.metaData.get('imagePlaneModule', imageId) || {};
+        const patientModule = cornerstoneWADOImageLoader.metaData.get('patientModule', imageId) || {};
+        const studyModule = cornerstoneWADOImageLoader.metaData.get('generalStudyModule', imageId) || {};
+        
+        if (studyModule.studyDate) {
+            document.getElementById('studyDate').textContent = studyModule.studyDate;
+        }
+        
+        if (metadata.sliceThickness) {
+            document.getElementById('sliceThickness').textContent = metadata.sliceThickness + ' mm';
+        }
+        
+        if (metadata.pixelSpacing) {
+            document.getElementById('pixelSpacing').textContent = 
+                metadata.pixelSpacing[0].toFixed(2) + ' × ' + metadata.pixelSpacing[1].toFixed(2) + ' mm';
+        }
+        
+        if (metadata.sliceLocation) {
+            document.getElementById('sliceLocation').innerHTML = 
+                '<i class="bi bi-geo-alt"></i> ' + metadata.sliceLocation.toFixed(2) + ' mm';
+        }
+    } catch (e) {
+        console.log('Metadata not available');
+    }
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    switch(e.key) {
+        case 'ArrowUp':
+            if (stack.currentImageIdIndex > 0) {
+                loadAndDisplayImage(stack.currentImageIdIndex - 1);
+            }
+            break;
+        case 'ArrowDown':
+            if (stack.currentImageIdIndex < stack.imageIds.length - 1) {
+                loadAndDisplayImage(stack.currentImageIdIndex + 1);
+            }
+            break;
+        case ' ':
+            e.preventDefault();
+            playStack();
+            break;
+        case 'r':
+        case 'R':
+            resetViewport();
+            break;
+        case 'm':
+        case 'M':
+            toggleMPR();
+            break;
+    }
+});
+
+// Mouse wheel navigation is now handled by StackScrollMouseWheelTool
+// No need for manual event handler
+
+// Play stack animation
+function playStack() {
+    const playButton = document.getElementById('playButton');
+    const playIcon = playButton.querySelector('i');
+    
+    if (isPlaying) {
+        // Stop playing
+        clearInterval(playInterval);
+        isPlaying = false;
+        playIcon.classList.replace('bi-pause-fill', 'bi-play-fill');
+        playButton.classList.replace('btn-danger', 'btn-success');
+    } else {
+        // Start playing
+        isPlaying = true;
+        playIcon.classList.replace('bi-play-fill', 'bi-pause-fill');
+        playButton.classList.replace('btn-success', 'btn-danger');
+        
+        playInterval = setInterval(function() {
+            if (stack.currentImageIdIndex < stack.imageIds.length - 1) {
+                loadAndDisplayImage(stack.currentImageIdIndex + 1);
+            } else {
+                // Loop back to start
+                loadAndDisplayImage(0);
+            }
+        }, 100); // 10 fps
+    }
+}
+
+// Reset viewport
+function resetViewport() {
+    cornerstone.reset(element);
+    // Reapply dental preset
+    const viewport = cornerstone.getViewport(element);
+    viewport.voi.windowWidth = 2800;
+    viewport.voi.windowCenter = 1000;
+    cornerstone.setViewport(element, viewport);
+}
+
+// Window presets
+function setWindowPreset(preset) {
+    const viewport = cornerstone.getViewport(element);
+    
+    const presets = {
+        'bone': { ww: 2000, wc: 300 },
+        'soft': { ww: 400, wc: 40 },
+        'lung': { ww: 1500, wc: -600 },
+        'dental': { ww: 2800, wc: 1000 }
+    };
+    
+    if (presets[preset]) {
+        viewport.voi.windowWidth = presets[preset].ww;
+        viewport.voi.windowCenter = presets[preset].wc;
+        cornerstone.setViewport(element, viewport);
+        
+        // Visual feedback
+        const btn = event.target.closest('button');
+        btn.style.background = 'var(--bs-primary)';
+        setTimeout(() => {
+            btn.style.background = '';
+        }, 300);
+    }
+}
+
+// Toggle MPR view
+let mprViewports = {};
+let mprEnabled = false;
+
+function toggleMPR() {
+    const standardView = document.getElementById('standardView');
+    const mprView = document.getElementById('mprView');
+    const mprButton = document.querySelector('[onclick="toggleMPR()"]');
+    
+    if (mprView.style.display === 'none') {
+        // Enable MPR view
+        standardView.style.display = 'none';
+        mprView.style.display = 'block';
+        mprEnabled = true;
+        mprButton.classList.replace('btn-info', 'btn-warning');
+        
+        // Initialize MPR viewports
+        initializeMPRViewports();
+    } else {
+        // Disable MPR view
+        standardView.style.display = 'block';
+        mprView.style.display = 'none';
+        mprEnabled = false;
+        mprButton.classList.replace('btn-warning', 'btn-info');
+    }
+}
+
+function initializeMPRViewports() {
+    // Initialize viewports for each orientation
+    const viewportIds = ['axialViewport', 'sagittalViewport', 'coronalViewport', '3dViewport'];
+    
+    viewportIds.forEach(viewportId => {
+        const viewportElement = document.getElementById(viewportId);
+        
+        // Enable the viewport if not already enabled
+        if (!mprViewports[viewportId]) {
+            cornerstone.enable(viewportElement);
+            mprViewports[viewportId] = viewportElement;
+            
+            // Add mouse wheel scrolling for each viewport
+            viewportElement.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                handleMPRScroll(viewportId, e.deltaY);
+            });
+        }
+    });
+    
+    // Load initial images in each viewport
+    updateMPRViews();
+}
+
+function updateMPRViews() {
+    if (!mprEnabled || !stack || !stack.imageIds) return;
+    
+    const currentIndex = stack.currentImageIdIndex || 0;
+    
+    // Axial view (standard horizontal slices)
+    if (mprViewports['axialViewport']) {
+        cornerstone.loadAndCacheImage(stack.imageIds[currentIndex]).then(image => {
+            cornerstone.displayImage(mprViewports['axialViewport'], image);
+            
+            // Apply dental window preset
+            const viewport = cornerstone.getViewport(mprViewports['axialViewport']);
+            viewport.voi.windowWidth = 2800;
+            viewport.voi.windowCenter = 1000;
+            cornerstone.setViewport(mprViewports['axialViewport'], viewport);
+        });
+    }
+    
+    // Sagittal view (side view - would need reconstruction)
+    if (mprViewports['sagittalViewport']) {
+        // For true sagittal, we'd need to reconstruct from the volume
+        // For now, show a different slice as placeholder
+        const sagittalIndex = Math.min(currentIndex + Math.floor(stack.imageIds.length / 4), stack.imageIds.length - 1);
+        cornerstone.loadAndCacheImage(stack.imageIds[sagittalIndex]).then(image => {
+            cornerstone.displayImage(mprViewports['sagittalViewport'], image);
+            
+            // Apply rotation for sagittal view simulation
+            const viewport = cornerstone.getViewport(mprViewports['sagittalViewport']);
+            viewport.rotation = 90;
+            viewport.voi.windowWidth = 2800;
+            viewport.voi.windowCenter = 1000;
+            cornerstone.setViewport(mprViewports['sagittalViewport'], viewport);
+        });
+    }
+    
+    // Coronal view (front view - would need reconstruction)
+    if (mprViewports['coronalViewport']) {
+        // For true coronal, we'd need to reconstruct from the volume
+        // For now, show a different slice as placeholder
+        const coronalIndex = Math.min(currentIndex + Math.floor(stack.imageIds.length / 2), stack.imageIds.length - 1);
+        cornerstone.loadAndCacheImage(stack.imageIds[coronalIndex]).then(image => {
+            cornerstone.displayImage(mprViewports['coronalViewport'], image);
+            
+            // Apply flip for coronal view simulation
+            const viewport = cornerstone.getViewport(mprViewports['coronalViewport']);
+            viewport.hflip = true;
+            viewport.voi.windowWidth = 2800;
+            viewport.voi.windowCenter = 1000;
+            cornerstone.setViewport(mprViewports['coronalViewport'], viewport);
+        });
+    }
+    
+    // 3D view placeholder (would need volume rendering)
+    if (mprViewports['3dViewport']) {
+        // Show MIP (Maximum Intensity Projection) as a simple 3D representation
+        const midIndex = Math.floor(stack.imageIds.length / 2);
+        cornerstone.loadAndCacheImage(stack.imageIds[midIndex]).then(image => {
+            cornerstone.displayImage(mprViewports['3dViewport'], image);
+            
+            const viewport = cornerstone.getViewport(mprViewports['3dViewport']);
+            viewport.voi.windowWidth = 3500;
+            viewport.voi.windowCenter = 1500;
+            viewport.invert = false;
+            cornerstone.setViewport(mprViewports['3dViewport'], viewport);
+        });
+    }
+}
+
+function handleMPRScroll(viewportId, delta) {
+    if (!mprEnabled) return;
+    
+    // Determine scroll direction
+    const scrollDirection = delta > 0 ? 1 : -1;
+    
+    // Update the current index based on viewport
+    if (viewportId === 'axialViewport') {
+        const newIndex = stack.currentImageIdIndex + scrollDirection;
+        if (newIndex >= 0 && newIndex < stack.imageIds.length) {
+            stack.currentImageIdIndex = newIndex;
+            updateMPRViews();
+            // Update main viewer too
+            document.getElementById('sliceSlider').value = newIndex;
+            document.getElementById('currentSlice').textContent = newIndex + 1;
+        }
+    }
+    // Additional viewport-specific scrolling logic can be added here
+}
+
+// Track measurements
+element.addEventListener('cornerstonetoolsmeasurementadded', function(e) {
+    updateMeasurements();
+});
+
+element.addEventListener('cornerstonetoolsmeasurementmodified', function(e) {
+    updateMeasurements();
+});
+
+function updateMeasurements() {
+    const measurementsDiv = document.getElementById('measurements');
+    const toolState = cornerstoneTools.globalImageIdSpecificToolStateManager.saveToolState();
+    
+    let html = '';
+    let measurementCount = 0;
+    
+    // Check for length measurements
+    for (let imageId in toolState) {
+        if (toolState[imageId].length && toolState[imageId].length.data) {
+            toolState[imageId].length.data.forEach((measurement, index) => {
+                measurementCount++;
+                const length = measurement.length ? measurement.length.toFixed(2) : 'N/A';
+                html += `<div class="mb-1"><i class="bi bi-rulers"></i> Length ${measurementCount}: <strong>${length} mm</strong></div>`;
+            });
+        }
+        
+        if (toolState[imageId].angle && toolState[imageId].angle.data) {
+            toolState[imageId].angle.data.forEach((measurement, index) => {
+                measurementCount++;
+                const angle = measurement.rAngle ? (measurement.rAngle * 180 / Math.PI).toFixed(1) : 'N/A';
+                html += `<div class="mb-1"><i class="bi bi-triangle"></i> Angle ${measurementCount}: <strong>${angle}°</strong></div>`;
+            });
+        }
+    }
+    
+    if (measurementCount === 0) {
+        html = '<p class="mb-0 text-center">No measurements yet</p>';
+    }
+    
+    measurementsDiv.innerHTML = html;
+}
+
+// Preload all images for smooth scrolling
+function preloadImages() {
+    stack.imageIds.forEach((imageId, index) => {
+        cornerstone.loadAndCacheImage(imageId).then(() => {
+            const progress = ((index + 1) / totalSlices) * 100;
+            console.log(`Loaded ${index + 1}/${totalSlices}`);
+        }).catch(err => {
+            console.error(`Error loading image ${index}:`, err);
+        });
+    });
+}
+
+// Start preloading after initial display
+setTimeout(preloadImages, 1000);
+</script>
+{% endblock %}

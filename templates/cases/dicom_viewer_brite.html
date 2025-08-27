@@ -1,0 +1,572 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}DICOM Viewer - {{ image.title }} - DCPlant{% endblock %}
+
+{% block extra_css %}
+<style>
+    #dicomImage {
+        width: 100%;
+        height: 600px;
+        background-color: #1a1a1a;
+        position: relative;
+        border: 3px solid #a2e436;
+        border-radius: 8px;
+    }
+    
+    .viewer-controls {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    .viewer-controls .btn {
+        margin: 0 4px;
+        font-size: 0.875rem;
+        border-width: 3px;
+    }
+    
+    .viewer-info {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .viewer-info dt {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 3px;
+    }
+    
+    .viewer-info dd {
+        margin-bottom: 10px;
+        color: #212529;
+    }
+    
+    .tool-active {
+        background-color: #a2e436 !important;
+        border-color: #8bc320 !important;
+        color: #000 !important;
+    }
+    
+    #loadingIndicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #a2e436;
+        font-size: 1.1rem;
+        z-index: 1000;
+        text-align: center;
+    }
+    
+    .measurement-info {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(28, 28, 28, 0.95);
+        color: #a2e436;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        border: 2px solid #a2e436;
+    }
+    
+    .card {
+        border-width: 3px;
+        border-color: var(--bs-dark);
+        border-radius: 0.5rem;
+    }
+    
+    .card-header {
+        background-color: white;
+        border-bottom: 3px solid var(--bs-dark);
+        font-weight: 600;
+        padding: 1rem;
+    }
+    
+    .page-title {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: var(--bs-dark);
+    }
+    
+    .page-subtitle {
+        color: var(--bs-secondary);
+        margin-bottom: 0;
+    }
+    
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .btn-toolbar {
+        flex-wrap: wrap;
+    }
+    
+    @media (max-width: 768px) {
+        #dicomImage {
+            height: 400px;
+        }
+        
+        .btn-toolbar .btn-group {
+            margin-bottom: 5px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb border-2 border-dark">
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' image.case.pk %}">{{ image.case.case_number }}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cases:image_list' image.case.pk %}">Images</a></li>
+                <li class="breadcrumb-item active">DICOM Viewer</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="bi bi-file-medical"></i> DICOM Viewer
+                </h1>
+                <p class="page-subtitle">
+                    <strong>{{ image.case.patient.full_name }}</strong> • 
+                    Case #{{ image.case.case_number }} • 
+                    {{ image.title }}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'cases:image_list' image.case.pk %}" class="btn btn-outline-secondary border-3 border-dark">
+                    <i class="bi bi-arrow-left"></i> Back to Images
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Viewer Column -->
+    <div class="col-lg-9 mb-4">
+        <!-- Viewer Controls Card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-tools"></i> Viewer Controls
+                </h5>
+            </div>
+            <div class="card-body viewer-controls">
+                <div class="btn-toolbar" role="toolbar">
+                    <!-- Window/Level Tools -->
+                    <div class="btn-group me-2" role="group" aria-label="Window and Level tools">
+                        <button id="wwwcTool" class="btn btn-sm btn-outline-secondary border-3 border-dark tool-btn" title="Window/Level">
+                            <i class="bi bi-brightness-high"></i> W/L
+                        </button>
+                        <button id="panTool" class="btn btn-sm btn-outline-secondary border-3 border-dark tool-btn" title="Pan">
+                            <i class="bi bi-arrows-move"></i> Pan
+                        </button>
+                        <button id="zoomTool" class="btn btn-sm btn-outline-secondary border-3 border-dark tool-btn" title="Zoom">
+                            <i class="bi bi-zoom-in"></i> Zoom
+                        </button>
+                    </div>
+
+                    <!-- Measurement Tools -->
+                    <div class="btn-group me-2" role="group" aria-label="Measurement tools">
+                        <button id="lengthTool" class="btn btn-sm btn-outline-info border-3 border-dark tool-btn" title="Length Measurement">
+                            <i class="bi bi-rulers"></i> Length
+                        </button>
+                        <button id="angleTool" class="btn btn-sm btn-outline-info border-3 border-dark tool-btn" title="Angle Measurement">
+                            <i class="bi bi-triangle"></i> Angle
+                        </button>
+                        <button id="probeTool" class="btn btn-sm btn-outline-info border-3 border-dark tool-btn" title="Pixel Probe">
+                            <i class="bi bi-crosshair"></i> Probe
+                        </button>
+                    </div>
+
+                    <!-- Image Manipulation -->
+                    <div class="btn-group me-2" role="group" aria-label="Image manipulation tools">
+                        <button id="invertTool" class="btn btn-sm btn-outline-primary border-3 border-dark" title="Invert">
+                            <i class="bi bi-circle-half"></i> Invert
+                        </button>
+                        <button id="rotateTool" class="btn btn-sm btn-outline-primary border-3 border-dark" title="Rotate">
+                            <i class="bi bi-arrow-clockwise"></i> Rotate
+                        </button>
+                        <button id="flipHTool" class="btn btn-sm btn-outline-primary border-3 border-dark" title="Flip Horizontal">
+                            <i class="bi bi-symmetry-horizontal"></i> Flip H
+                        </button>
+                        <button id="flipVTool" class="btn btn-sm btn-outline-primary border-3 border-dark" title="Flip Vertical">
+                            <i class="bi bi-symmetry-vertical"></i> Flip V
+                        </button>
+                    </div>
+
+                    <!-- Reset/Clear -->
+                    <div class="btn-group" role="group" aria-label="Reset tools">
+                        <button id="resetTool" class="btn btn-sm btn-outline-warning border-3 border-dark" title="Reset View">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                        <button id="clearTool" class="btn btn-sm btn-outline-danger border-3 border-dark" title="Clear Measurements">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DICOM Viewer Canvas -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="position-relative">
+                    <div id="dicomImage">
+                        <div id="loadingIndicator">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading DICOM image...</p>
+                        </div>
+                    </div>
+                    <div class="measurement-info" style="display: none;">
+                        <div id="measurementData"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Column -->
+    <div class="col-lg-3">
+        <!-- Image Information -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-info-circle"></i>
+                    Image Information
+                </h5>
+            </div>
+            <div class="card-body viewer-info">
+                <dl class="mb-0">
+                    <dt>Patient:</dt>
+                    <dd>{{ image.case.patient.full_name }}</dd>
+                    
+                    <dt>Case Number:</dt>
+                    <dd>{{ image.case.case_number }}</dd>
+                    
+                    <dt>Image Type:</dt>
+                    <dd>
+                        <span class="badge bg-info text-dark">
+                            {{ image.get_image_type_display }}
+                        </span>
+                    </dd>
+                    
+                    {% if image.taken_date %}
+                    <dt>Taken Date:</dt>
+                    <dd>{{ image.taken_date|date:"M d, Y" }}</dd>
+                    {% endif %}
+                    
+                    <dt>Uploaded By:</dt>
+                    <dd>{{ image.uploaded_by.get_full_name|default:image.uploaded_by.username }}</dd>
+                    
+                    <dt>Upload Date:</dt>
+                    <dd>{{ image.created_at|date:"M d, Y H:i" }}</dd>
+                    
+                    {% if image.is_deidentified %}
+                    <dt>De-identified:</dt>
+                    <dd>
+                        <span class="badge bg-success">
+                            <i class="bi bi-shield-check"></i> Yes
+                        </span>
+                    </dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- DICOM Metadata -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-file-code"></i>
+                    DICOM Metadata
+                </h5>
+            </div>
+            <div class="card-body viewer-info">
+                <dl id="dicomMetadata" class="mb-0">
+                    <dd class="text-muted">Loading metadata...</dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-gear"></i>
+                    Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ image.image.url }}" download class="btn btn-primary border-3 border-dark w-100 mb-2">
+                    <i class="bi bi-download"></i> Download DICOM
+                </a>
+                {% if user == image.uploaded_by or user.profile.is_admin or user.is_staff %}
+                <a href="{% url 'cases:image_edit' image.pk %}" class="btn btn-outline-secondary border-3 border-dark w-100 mb-2">
+                    <i class="bi bi-pencil"></i> Edit Details
+                </a>
+                <form method="post" action="{% url 'cases:image_delete' image.pk %}" class="d-inline w-100" onsubmit="return confirm('Are you sure you want to delete this DICOM file?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger border-3 border-dark w-100">
+                        <i class="bi bi-trash"></i> Delete Image
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Cornerstone.js and dependencies -->
+<script src="https://unpkg.com/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+<script src="https://unpkg.com/cornerstone-math@0.1.10/dist/cornerstoneMath.min.js"></script>
+<script src="https://unpkg.com/cornerstone-tools@6.0.0/dist/cornerstoneTools.min.js"></script>
+<script src="https://unpkg.com/cornerstone-wado-image-loader@4.1.5/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+<script src="https://unpkg.com/dicom-parser@1.8.13/dist/dicomParser.min.js"></script>
+
+<script>
+// Configure Cornerstone
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+cornerstoneTools.external.cornerstone = cornerstone;
+cornerstoneTools.external.Hammer = Hammer;
+cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+
+// Configure the loader to handle HTTP requests properly
+cornerstoneWADOImageLoader.configure({
+    beforeSend: function(xhr) {
+        // This is required for CORS if needed
+    },
+    errorLoadingImage: function(imageId, error) {
+        console.error('Error loading image:', imageId, error);
+    }
+});
+
+// Initialize
+cornerstoneTools.init();
+
+const element = document.getElementById('dicomImage');
+cornerstone.enable(element);
+
+// Load and display the DICOM image
+// Build full URL for DICOM file
+const baseUrl = window.location.protocol + '//' + window.location.host;
+const dicomUrl = baseUrl + '{{ image.image.url }}';
+const imageId = 'wadouri:' + dicomUrl;
+
+console.log('Loading DICOM from:', dicomUrl);
+
+cornerstone.loadImage(imageId).then(function(image) {
+    // Hide loading indicator
+    document.getElementById('loadingIndicator').style.display = 'none';
+    
+    // Display the image
+    cornerstone.displayImage(element, image);
+    
+    // Set up default tool
+    cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
+    cornerstoneTools.addTool(cornerstoneTools.PanTool);
+    cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+    cornerstoneTools.addTool(cornerstoneTools.LengthTool);
+    cornerstoneTools.addTool(cornerstoneTools.AngleTool);
+    cornerstoneTools.addTool(cornerstoneTools.ProbeTool);
+    
+    // Set the default tool
+    cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 1 });
+    document.getElementById('wwwcTool').classList.add('tool-active');
+    
+    // Display metadata
+    displayMetadata(image);
+}).catch(function(error) {
+    console.error('Error loading DICOM:', error);
+    console.error('Image ID:', imageId);
+    console.error('DICOM URL:', dicomUrl);
+    
+    // Try to provide more specific error message
+    let errorMessage = 'Error loading DICOM file.';
+    if (error.message) {
+        errorMessage += ' ' + error.message;
+    }
+    
+    document.getElementById('loadingIndicator').innerHTML = 
+        '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' + errorMessage + '<br><small>Check browser console for details.</small></div>';
+});
+
+// Tool button handlers
+document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Remove active class from all tool buttons
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('tool-active'));
+        // Add active class to clicked button
+        this.classList.add('tool-active');
+        
+        // Deactivate all tools
+        cornerstoneTools.setToolPassive('Wwwc');
+        cornerstoneTools.setToolPassive('Pan');
+        cornerstoneTools.setToolPassive('Zoom');
+        cornerstoneTools.setToolPassive('Length');
+        cornerstoneTools.setToolPassive('Angle');
+        cornerstoneTools.setToolPassive('Probe');
+        
+        // Activate selected tool
+        switch(this.id) {
+            case 'wwwcTool':
+                cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 1 });
+                break;
+            case 'panTool':
+                cornerstoneTools.setToolActive('Pan', { mouseButtonMask: 1 });
+                break;
+            case 'zoomTool':
+                cornerstoneTools.setToolActive('Zoom', { mouseButtonMask: 1 });
+                break;
+            case 'lengthTool':
+                cornerstoneTools.setToolActive('Length', { mouseButtonMask: 1 });
+                document.querySelector('.measurement-info').style.display = 'block';
+                break;
+            case 'angleTool':
+                cornerstoneTools.setToolActive('Angle', { mouseButtonMask: 1 });
+                document.querySelector('.measurement-info').style.display = 'block';
+                break;
+            case 'probeTool':
+                cornerstoneTools.setToolActive('Probe', { mouseButtonMask: 1 });
+                break;
+        }
+    });
+});
+
+// Invert tool
+document.getElementById('invertTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.invert = !viewport.invert;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Rotate tool
+document.getElementById('rotateTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.rotation += 90;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Flip Horizontal tool
+document.getElementById('flipHTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.hflip = !viewport.hflip;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Flip Vertical tool
+document.getElementById('flipVTool').addEventListener('click', function() {
+    const viewport = cornerstone.getViewport(element);
+    viewport.vflip = !viewport.vflip;
+    cornerstone.setViewport(element, viewport);
+});
+
+// Reset tool
+document.getElementById('resetTool').addEventListener('click', function() {
+    cornerstone.reset(element);
+});
+
+// Clear measurements tool
+document.getElementById('clearTool').addEventListener('click', function() {
+    const toolStateManager = cornerstoneTools.globalImageIdSpecificToolStateManager;
+    toolStateManager.clear(element);
+    cornerstone.updateImage(element);
+    document.querySelector('.measurement-info').style.display = 'none';
+});
+
+// Display DICOM metadata
+function displayMetadata(image) {
+    const metadata = cornerstoneWADOImageLoader.metaData.get('imagePlaneModule', imageId) || {};
+    const patientModule = cornerstoneWADOImageLoader.metaData.get('patientModule', imageId) || {};
+    const studyModule = cornerstoneWADOImageLoader.metaData.get('generalStudyModule', imageId) || {};
+    
+    let metadataHtml = '';
+    
+    if (image.width && image.height) {
+        metadataHtml += `<dt>Dimensions:</dt><dd>${image.width} x ${image.height}</dd>`;
+    }
+    
+    if (metadata.pixelSpacing) {
+        metadataHtml += `<dt>Pixel Spacing:</dt><dd>${metadata.pixelSpacing[0].toFixed(2)} x ${metadata.pixelSpacing[1].toFixed(2)} mm</dd>`;
+    }
+    
+    if (metadata.sliceThickness) {
+        metadataHtml += `<dt>Slice Thickness:</dt><dd>${metadata.sliceThickness} mm</dd>`;
+    }
+    
+    if (patientModule.patientName) {
+        metadataHtml += `<dt>Patient Name:</dt><dd>${patientModule.patientName}</dd>`;
+    }
+    
+    if (studyModule.studyDate) {
+        metadataHtml += `<dt>Study Date:</dt><dd>${studyModule.studyDate}</dd>`;
+    }
+    
+    if (studyModule.studyDescription) {
+        metadataHtml += `<dt>Study:</dt><dd>${studyModule.studyDescription}</dd>`;
+    }
+    
+    document.getElementById('dicomMetadata').innerHTML = metadataHtml || '<dd class="text-muted">No metadata available</dd>';
+}
+
+// Handle measurement updates
+element.addEventListener('cornerstonetoolsmeasurementadded', function(e) {
+    updateMeasurementDisplay();
+});
+
+element.addEventListener('cornerstonetoolsmeasurementmodified', function(e) {
+    updateMeasurementDisplay();
+});
+
+function updateMeasurementDisplay() {
+    const toolState = cornerstoneTools.globalImageIdSpecificToolStateManager.saveToolState();
+    let measurementText = '';
+    
+    // Check for length measurements
+    if (toolState[imageId] && toolState[imageId].length && toolState[imageId].length.data.length > 0) {
+        measurementText += '<strong>Length Measurements:</strong><br>';
+        toolState[imageId].length.data.forEach((measurement, index) => {
+            measurementText += `${index + 1}: ${measurement.length.toFixed(2)} mm<br>`;
+        });
+    }
+    
+    // Check for angle measurements
+    if (toolState[imageId] && toolState[imageId].angle && toolState[imageId].angle.data.length > 0) {
+        measurementText += '<strong>Angle Measurements:</strong><br>';
+        toolState[imageId].angle.data.forEach((measurement, index) => {
+            measurementText += `${index + 1}: ${measurement.angle.toFixed(1)}°<br>`;
+        });
+    }
+    
+    if (measurementText) {
+        document.getElementById('measurementData').innerHTML = measurementText;
+        document.querySelector('.measurement-info').style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

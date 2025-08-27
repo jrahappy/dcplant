@@ -1,0 +1,293 @@
+{% extends 'base_brite_sidebar.html' %}
+
+{% block title %}Settings - DCPlant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="page-title">
+            <i class="bi bi-gear-fill"></i> Settings
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-3">
+        <!-- Settings Navigation -->
+        <div class="card border-2 mb-4 settings-nav">
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    <a href="#appearance" class="list-group-item list-group-item-action active border-2">
+                        <i class="bi bi-palette-fill"></i> Appearance
+                    </a>
+                    <a href="#notifications" class="list-group-item list-group-item-action border-2">
+                        <i class="bi bi-bell-fill"></i> Notifications
+                    </a>
+                    <a href="#security" class="list-group-item list-group-item-action border-2">
+                        <i class="bi bi-shield-lock-fill"></i> Security
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-9">
+        <!-- Appearance Settings -->
+        <div class="card border-2 mb-4" id="appearance">
+            <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-info">
+                    <i class="bi bi-palette-fill"></i> Appearance
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <label class="form-label">Theme</label>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="form-check card border-2 p-3">
+                                <input class="form-check-input border-2" type="radio" name="theme" 
+                                       id="themeBrite" value="brite" checked>
+                                <label class="form-check-label ms-2" for="themeBrite">
+                                    <strong>Brite</strong>
+                                    <small class="d-block text-muted">Vibrant lime green theme</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check card border-2 p-3">
+                                <input class="form-check-input border-2" type="radio" name="theme" 
+                                       id="themePhoenix" value="phoenix">
+                                <label class="form-check-label ms-2" for="themePhoenix">
+                                    <strong>Phoenix</strong>
+                                    <small class="d-block text-muted">Modern gradient theme</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check card border-2 p-3">
+                                <input class="form-check-input border-2" type="radio" name="theme" 
+                                       id="themeDefault" value="default">
+                                <label class="form-check-label ms-2" for="themeDefault">
+                                    <strong>Classic</strong>
+                                    <small class="d-block text-muted">Traditional Bootstrap</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">Dark Mode</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input border-2" type="checkbox" id="darkModeToggle">
+                        <label class="form-check-label" for="darkModeToggle">
+                            Enable dark mode
+                        </label>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary border-2 border-dark" onclick="saveAppearance()">
+                    <i class="bi bi-check-circle"></i> Save Appearance
+                </button>
+            </div>
+        </div>
+        
+        <!-- Notification Settings -->
+        <div class="card border-2 mb-4" id="notifications">
+            <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-warning">
+                    <i class="bi bi-bell-fill"></i> Notifications
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-3">
+                    <input class="form-check-input border-2" type="checkbox" id="emailNotifications" checked>
+                    <label class="form-check-label" for="emailNotifications">
+                        <strong>Email Notifications</strong>
+                        <small class="d-block text-muted">Receive updates via email</small>
+                    </label>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input border-2" type="checkbox" id="caseUpdates" checked>
+                    <label class="form-check-label" for="caseUpdates">
+                        <strong>Case Updates</strong>
+                        <small class="d-block text-muted">Get notified when cases are updated</small>
+                    </label>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input border-2" type="checkbox" id="newPatients">
+                    <label class="form-check-label" for="newPatients">
+                        <strong>New Patients</strong>
+                        <small class="d-block text-muted">Alert for new patient registrations</small>
+                    </label>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input border-2" type="checkbox" id="weeklyReports">
+                    <label class="form-check-label" for="weeklyReports">
+                        <strong>Weekly Reports</strong>
+                        <small class="d-block text-muted">Receive weekly summary reports</small>
+                    </label>
+                </div>
+                
+                <button class="btn btn-primary border-2 border-dark">
+                    <i class="bi bi-check-circle"></i> Save Notifications
+                </button>
+            </div>
+        </div>
+        
+        <!-- Security Settings -->
+        <div class="card border-2" id="security">
+            <div class="card-header bg-danger bg-opacity-10 border-2 border-dark">
+                <h5 class="mb-0 text-danger">
+                    <i class="bi bi-shield-lock-fill"></i> Security
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6>Change Password</h6>
+                    <form>
+                        <div class="mb-3">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" class="form-control border-2">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" class="form-control border-2">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control border-2">
+                        </div>
+                        <button type="submit" class="btn btn-primary border-2 border-dark">
+                            <i class="bi bi-lock"></i> Update Password
+                        </button>
+                    </form>
+                </div>
+                
+                <hr>
+                
+                <div>
+                    <h6>Active Sessions</h6>
+                    <p class="text-muted">Manage your active login sessions</p>
+                    <div class="list-group">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Current Session</strong>
+                                <small class="d-block text-muted">{{ request.META.HTTP_USER_AGENT|truncatechars:50 }}</small>
+                            </div>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Settings page styles */
+.list-group-item.active {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-dark);
+    color: var(--bs-dark);
+    font-weight: 600;
+}
+
+.list-group-item:hover {
+    background-color: rgba(162, 228, 54, 0.1);
+}
+
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-dark);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(162, 228, 54, 0.25) !important;
+}
+
+/* Settings navigation sticky */
+@media (min-width: 992px) {
+    .settings-nav {
+        position: sticky;
+        top: 90px;
+    }
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .card {
+    background-color: #2b3035 !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .form-check-input {
+    background-color: #1a1d20 !important;
+    border-color: #495057 !important;
+    color: #dee2e6 !important;
+}
+
+[data-bs-theme="dark"] .form-control:disabled {
+    background-color: #0d0f11 !important;
+}
+
+[data-bs-theme="dark"] .list-group-item {
+    background-color: #2b3035 !important;
+    border-color: #495057 !important;
+    color: #dee2e6 !important;
+}
+
+[data-bs-theme="dark"] .list-group-item.active {
+    background-color: #c7ef86 !important;
+    color: #000 !important;
+}
+
+[data-bs-theme="dark"] .list-group-item:hover {
+    background-color: rgba(199, 239, 134, 0.1) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function saveAppearance() {
+    const selectedTheme = document.querySelector('input[name="theme"]:checked').value;
+    const darkMode = document.getElementById('darkModeToggle').checked;
+    
+    // Save theme
+    fetch("{% url 'dashboard:switch_theme' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'theme=' + selectedTheme
+    }).then(response => {
+        if (response.ok) {
+            // Apply dark mode
+            if (darkMode) {
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.setAttribute('data-bs-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            }
+            
+            // Reload to apply new theme
+            window.location.reload();
+        }
+    });
+}
+
+// Set current dark mode state
+document.addEventListener('DOMContentLoaded', function() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    document.getElementById('darkModeToggle').checked = currentTheme === 'dark';
+});
+</script>
+{% endblock %}

@@ -45,9 +45,14 @@ LOCAL_APPS = [
     "blog",
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS + [
-    "django_cleanup.apps.CleanupConfig",  # Should be last
-]
+INSTALLED_APPS = (
+    DJANGO_APPS
+    + THIRD_PARTY_APPS
+    + LOCAL_APPS
+    + [
+        "django_cleanup.apps.CleanupConfig",  # Should be last
+    ]
+)
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -165,6 +170,8 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+DATA_UPLOAD_MAX_NUMBER_FILES = 800
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

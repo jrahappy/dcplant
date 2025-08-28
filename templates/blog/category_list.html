@@ -1,95 +1,172 @@
-{% extends 'base.html' %}
+{% extends 'base_brite_sidebar.html' %}
 {% load static %}
 
 {% block title %}Blog Categories - DCPlant{% endblock %}
 
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-tags me-2"></i>Blog Categories</h1>
-    {% if user.is_staff %}
-    <div>
-        <a href="{% url 'blog:post_list' %}" class="btn btn-outline-primary me-2">
-            <i class="bi bi-arrow-left me-1"></i>Back to Posts
-        </a>
-        <a href="{% url 'blog:category_create' %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>New Category
-        </a>
-    </div>
-    {% endif %}
-</div>
+{% block extra_css %}
+<style>
+    .category-card {
+        transition: all 0.3s ease;
+        border: 1px solid rgba(162, 228, 54, 0.2);
+    }
+    .category-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(162, 228, 54, 0.15);
+        border-color: #a2e436;
+    }
+    .badge-posts {
+        background-color: rgba(162, 228, 54, 0.15);
+        color: #5a7c1a;
+        font-weight: 500;
+    }
+    .btn-action {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    .table-brite th {
+        background-color: rgba(162, 228, 54, 0.08);
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #a2e436;
+    }
+    .table-brite tbody tr:hover {
+        background-color: rgba(162, 228, 54, 0.04);
+    }
+    .empty-state {
+        padding: 3rem 1rem;
+    }
+    .empty-state i {
+        color: #a2e436;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
 
-<div class="card">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Slug</th>
-                        <th>Description</th>
-                        <th>Posts</th>
-                        <th>Created</th>
-                        {% if user.is_staff %}
-                        <th>Actions</th>
-                        {% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for category in categories %}
-                    <tr>
-                        <td>
-                            <strong>{{ category.name }}</strong>
-                        </td>
-                        <td>
-                            <code>{{ category.slug }}</code>
-                        </td>
-                        <td>{{ category.description|truncatechars:100 }}</td>
-                        <td>
-                            <a href="{% url 'blog:post_list' %}?category={{ category.id }}" 
-                               class="badge bg-info text-decoration-none">
-                                {{ category.post_count }} posts
-                            </a>
-                        </td>
-                        <td>{{ category.created_at|date:"M d, Y" }}</td>
-                        {% if user.is_staff %}
-                        <td>
-                            <div class="btn-group" role="group">
-                                <a href="{% url 'blog:category_edit' category.slug %}" 
-                                   class="btn btn-sm btn-outline-secondary" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                {% if category.post_count == 0 %}
-                                <button type="button" class="btn btn-sm btn-outline-danger" 
-                                        onclick="confirmDelete('{{ category.slug }}', '{{ category.name }}')" 
-                                        title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                                {% else %}
-                                <button type="button" class="btn btn-sm btn-outline-danger" disabled
-                                        title="Cannot delete category with posts">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                                {% endif %}
-                            </div>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="{% if user.is_staff %}6{% else %}5{% endif %}" 
-                            class="text-center text-muted py-4">
-                            <i class="bi bi-tags" style="font-size: 2rem;"></i>
-                            <p class="mt-2">No categories found</p>
-                            {% if user.is_staff %}
-                            <a href="{% url 'blog:category_create' %}" class="btn btn-primary">
-                                <i class="bi bi-plus-circle me-2"></i>Create First Category
-                            </a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-tags text-primary me-2"></i>Blog Categories
+                    </h2>
+                    <p class="text-muted mb-0">Manage your blog post categories</p>
+                </div>
+                {% if user.is_staff %}
+                <div class="mt-2 mt-sm-0">
+                    <a href="{% url 'blog:post_list' %}" class="btn btn-outline-secondary me-2">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Posts
+                    </a>
+                    <a href="{% url 'blog:category_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i>New Category
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card category-card">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ul me-2"></i>All Categories
+                        </h5>
+                        <span class="badge badge-posts">{{ categories|length }} Total</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-brite mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 20%;">Name</th>
+                                    <th style="width: 15%;">Slug</th>
+                                    <th style="width: 35%;">Description</th>
+                                    <th style="width: 10%;" class="text-center">Posts</th>
+                                    <th style="width: 12%;">Created</th>
+                                    {% if user.is_staff %}
+                                    <th style="width: 8%;" class="text-center">Actions</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category in categories %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="rounded-circle bg-primary bg-opacity-10 p-2 me-2" style="width: 32px; height: 32px;">
+                                                <i class="bi bi-tag text-primary" style="font-size: 0.875rem;"></i>
+                                            </div>
+                                            <strong>{{ category.name }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <code class="text-primary">{{ category.slug }}</code>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ category.description|default:"No description"|truncatechars:80 }}
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{% url 'blog:post_list' %}?category={{ category.id }}" 
+                                           class="badge badge-posts text-decoration-none">
+                                            {{ category.post_count }} posts
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ category.created_at|date:"M d, Y" }}</small>
+                                    </td>
+                                    {% if user.is_staff %}
+                                    <td class="text-center">
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'blog:category_edit' category.slug %}" 
+                                               class="btn btn-action btn-outline-secondary" title="Edit">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            {% if category.post_count == 0 %}
+                                            <button type="button" class="btn btn-action btn-outline-danger" 
+                                                    onclick="confirmDelete('{{ category.slug }}', '{{ category.name }}')" 
+                                                    title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% else %}
+                                            <button type="button" class="btn btn-action btn-outline-secondary" disabled
+                                                    title="Cannot delete category with posts">
+                                                <i class="bi bi-lock"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="{% if user.is_staff %}6{% else %}5{% endif %}">
+                                        <div class="empty-state text-center">
+                                            <i class="bi bi-tags" style="font-size: 3rem;"></i>
+                                            <h5 class="mt-3 text-muted">No categories found</h5>
+                                            <p class="text-muted">Get started by creating your first category</p>
+                                            {% if user.is_staff %}
+                                            <a href="{% url 'blog:category_create' %}" class="btn btn-primary">
+                                                <i class="bi bi-plus-circle me-2"></i>Create First Category
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

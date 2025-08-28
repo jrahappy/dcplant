@@ -118,6 +118,15 @@ def post_create(request):
             post = form.save(commit=False)
             post.author = request.user
             post.organization = profile.organization
+            
+            # Handle save_draft vs save_publish buttons
+            if 'save_draft' in request.POST:
+                post.status = 'DRAFT'
+            elif 'save_publish' in request.POST:
+                post.status = 'PUBLISHED'
+                if not post.published_at:
+                    post.published_at = timezone.now()
+            
             post.save()
             
             messages.success(request, f'Blog post "{post.title}" created successfully!')
@@ -155,7 +164,17 @@ def post_edit(request, slug):
     if request.method == 'POST':
         form = BlogPostForm(request.POST, request.FILES, instance=post, user=request.user)
         if form.is_valid():
-            post = form.save()
+            post = form.save(commit=False)
+            
+            # Handle save_draft vs save_publish buttons
+            if 'save_draft' in request.POST:
+                post.status = 'DRAFT'
+            elif 'save_publish' in request.POST:
+                post.status = 'PUBLISHED'
+                if not post.published_at:
+                    post.published_at = timezone.now()
+            
+            post.save()
             messages.success(request, 'Blog post updated successfully!')
             return redirect('blog:post_detail', slug=post.slug)
     else:

@@ -258,13 +258,10 @@ class CaseImageItem(models.Model):
 
     IMAGE_TYPE_CHOICES = [
         ("PHOTO", "Photograph"),
-        ("PANO", "Panoramic X-Ray"),
-        ("CBCT", "CBCT Scan"),
-        ("XRAY", "X-Ray"),
-        ("MRI", "MRI"),
-        ("CT", "CT Scan"),
-        ("DICOM", "DICOM"),
-        ("DIAGRAM", "Diagram"),
+        ("PANO", "Panoramic"),
+        ("CBCT", "CBCT"),
+        ("IOXray", "Intraoral X-Ray"),
+        ("3DScan", "3D Scan"),
         ("PDF", "PDF Document"),
         ("ZIP", "ZIP Archive"),
         ("OTHER", "Other"),

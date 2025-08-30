@@ -17,9 +17,9 @@
         <div class="card border-2 mb-4 settings-nav">
             <div class="card-body p-0">
                 <div class="list-group list-group-flush">
-                    <a href="#appearance" class="list-group-item list-group-item-action active border-2">
+                    <!-- <a href="#appearance" class="list-group-item list-group-item-action active border-2">
                         <i class="bi bi-palette-fill"></i> Appearance
-                    </a>
+                    </a> -->
                     <a href="#notifications" class="list-group-item list-group-item-action border-2">
                         <i class="bi bi-bell-fill"></i> Notifications
                     </a>
@@ -33,7 +33,7 @@
     
     <div class="col-lg-9">
         <!-- Appearance Settings -->
-        <div class="card border-2 mb-4" id="appearance">
+        <!-- <div class="card border-2 mb-4" id="appearance">
             <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
                 <h5 class="mb-0 text-info">
                     <i class="bi bi-palette-fill"></i> Appearance
@@ -74,7 +74,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> 
                 
                 <div class="mb-4">
                     <label class="form-label">Dark Mode</label>
@@ -91,12 +91,12 @@
                 </button>
             </div>
         </div>
-        
+        -->
         <!-- Notification Settings -->
         <div class="card border-2 mb-4" id="notifications">
             <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
                 <h5 class="mb-0 text-warning">
-                    <i class="bi bi-bell-fill"></i> Notifications
+                    <i class="bi bi-bell-fill"></i> Notifications ({{ user.notification_settings.count }})
                 </h5>
             </div>
             <div class="card-body">

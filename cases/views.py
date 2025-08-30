@@ -656,6 +656,99 @@ def case_share(request, pk):
             case.is_shared = True
             case.save()
             
+            # Send email notifications to HQ dentists
+            from django.core.mail import send_mail
+            from django.conf import settings
+            from django.utils.html import strip_tags
+            from accounts.models import UserProfile
+            
+            for org in organizations:
+                # Check if this is HQ organization using org_type field
+                if org.org_type == 'HQ':
+                    # Get all dentist users from HQ organization
+                    hq_dentists = UserProfile.objects.filter(
+                        organization=org,
+                        role='DENTIST',
+                        user__is_active=True
+                    ).select_related('user')
+                    
+                    # Prepare email list
+                    dentist_emails = [profile.user.email for profile in hq_dentists if profile.user.email]
+                    
+                    if dentist_emails:
+                        # Prepare email content
+                        subject = f"New Case Shared: {case.case_number} - {case.patient.full_name}"
+                        
+                        message = f"""
+Dear Doctor,
+
+A new case has been shared with your organization.
+
+Case Details:
+- Case Number: {case.case_number}
+- Patient: {case.patient.full_name}
+- Chief Complaint: {strip_tags(case.chief_complaint)[:200]}...
+- Priority: {case.get_priority_display()}
+- Status: {case.get_status_display()}
+- Shared By: {request.user.get_full_name() or request.user.username}
+- Organization: {profile.organization.name}
+
+You can view the case at: {request.build_absolute_uri(f'/cases/case/{case.pk}/')}
+
+Best regards,
+DCPlant System
+                        """
+                        
+                        html_message = f"""
+<html>
+<body style="font-family: Arial, sans-serif;">
+    <h2 style="color: #a2e436;">New Case Shared with Your Organization</h2>
+    <p>Dear Doctor,</p>
+    <p>A new case has been shared with your organization.</p>
+    
+    <div style="background-color: #f5f5f5; padding: 15px; border-left: 4px solid #a2e436; margin: 20px 0;">
+        <h3 style="color: #333;">Case Details:</h3>
+        <ul style="list-style-type: none; padding: 0;">
+            <li><strong>Case Number:</strong> {case.case_number}</li>
+            <li><strong>Patient:</strong> {case.patient.full_name}</li>
+            <li><strong>Chief Complaint:</strong> {strip_tags(case.chief_complaint)[:200]}...</li>
+            <li><strong>Priority:</strong> <span style="color: {'#dc3545' if case.priority == 'URGENT' else '#ffc107' if case.priority == 'HIGH' else '#28a745'};">{case.get_priority_display()}</span></li>
+            <li><strong>Status:</strong> {case.get_status_display()}</li>
+            <li><strong>Shared By:</strong> {request.user.get_full_name() or request.user.username}</li>
+            <li><strong>Organization:</strong> {profile.organization.name}</li>
+        </ul>
+    </div>
+    
+    <p style="margin-top: 20px;">
+        <a href="{request.build_absolute_uri(f'/cases/case/{case.pk}/')}" 
+           style="background-color: #a2e436; color: #000; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View Case Details
+        </a>
+    </p>
+    
+    <hr style="border: 1px solid #e0e0e0; margin-top: 30px;">
+    <p style="color: #666; font-size: 12px;">
+        Best regards,<br>
+        DCPlant System<br>
+        <em>Dental Case & Patient Management Platform</em>
+    </p>
+</body>
+</html>
+                        """
+                        
+                        try:
+                            send_mail(
+                                subject=subject,
+                                message=message,
+                                from_email=settings.DEFAULT_FROM_EMAIL,
+                                recipient_list=dentist_emails,
+                                html_message=html_message,
+                                fail_silently=True,  # Don't break the sharing process if email fails
+                            )
+                        except Exception as e:
+                            # Log the error but don't stop the sharing process
+                            print(f"Failed to send email notification: {str(e)}")
+            
             # Log activity
             CaseActivity.objects.create(
                 case=case,

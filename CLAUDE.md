@@ -341,8 +341,44 @@ See `.env.production.example` for all configuration options.
 - Built for dental practice management
 - Open source under MIT License
 
+## Recent Updates (August 30, 2025)
+
+### Layout & UI Improvements
+- **Quick Actions Positioning**: Fixed Quick Actions section to properly display on the right side of case detail page
+  - Added responsive Bootstrap grid classes for proper layout on all screen sizes
+  - Implemented sticky positioning for Quick Actions card
+  - Ensures proper column layout on tablets and desktops
+
+### Case Sharing & Permissions
+- **Shared Cases Display**: Replaced "Assigned To" with "Shared To" in case details
+  - Shows organizations the case is shared with as badges
+  - Displays lock icon when case is not shared
+  - Clear visual indication of sharing status
+
+- **Image Upload for Shared Cases**: Fixed "Page not found" error when uploading to shared cases
+  - Updated permission checks to allow uploads to shared cases
+  - Fixed image_upload, image_list, and image_delete views
+  - Users can now properly upload images to cases shared with their organization
+
+### Clinical Opinions Management
+- **Opinion with Case Status Update**: Added case status dropdown to opinion modals
+  - Users can update case status when submitting opinions
+  - Status changes are logged in activity history
+  - Efficient workflow for case progression
+
+- **Author-Only Editing**: Enforced strict permissions for clinical opinions
+  - Only the author can edit or delete their own opinions
+  - Removed staff override privileges
+  - Ensures accountability and integrity of clinical records
+
+- **Case Deletion Protection**: Implemented safeguards for cases with multiple contributors
+  - Cases with opinions from other authors cannot be deleted by regular users
+  - Only HQ superusers can delete such cases
+  - Clear error messages and disabled buttons with explanatory tooltips
+  - Protects valuable collaborative clinical data
+
 ## Last Updated
-August 14, 2025
+August 30, 2025
 
 ---
 *This document tracks all development work completed on the DCPlant project.*

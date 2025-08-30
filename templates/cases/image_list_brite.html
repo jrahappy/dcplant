@@ -149,7 +149,7 @@
         <div class="card image-card">
             <div class="position-relative">
                 <!-- Delete Button (visible on hover) -->
-                {% if user == image.uploaded_by or user.profile.is_admin or user.is_staff %}
+                {% if user == image.uploaded_by or user.is_superuser %}
                 <button class="btn btn-danger btn-sm delete-btn border-2 border-dark" 
                         onclick="confirmDelete({{ image.pk }}, '{{ image.title }}')"
                         title="Delete this image">

@@ -37,7 +37,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-9">
+    <div class="col-12 col-md-8 col-lg-9 col-xl-9">
         <!-- Status and Priority Banner -->
         <div class="card border-2 mb-4">
             <div class="card-body">
@@ -79,14 +79,16 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <label class="text-muted small mb-1">Assigned To</label>
+                        <label class="text-muted small mb-1">Shared To</label>
                         <div>
-                            {% if case.assigned_to %}
-                                <i class="bi bi-person-check text-success"></i>
-                                Dr. {{ case.assigned_to.get_full_name|default:case.assigned_to.username }}
+                            {% if case.is_shared and case.share_with_branches.exists %}
+                                <i class="bi bi-share text-info"></i>
+                                {% for org in case.share_with_branches.all %}
+                                    <span class="badge bg-info text-dark me-1">{{ org.name }}</span>
+                                {% endfor %}
                             {% else %}
                                 <span class="text-muted">
-                                    <i class="bi bi-person-x"></i> Not assigned
+                                    <i class="bi bi-lock"></i> Not shared
                                 </span>
                             {% endif %}
                         </div>
@@ -253,7 +255,7 @@
                                                 {% endif %}
                                             </small>
                                         </div>
-                                        {% if user == opinion.author or user.is_staff and opinion.status == "PUBLISHED" %}
+                                        {% if user == opinion.author %}
                                         <div class="dropdown">
                                             <button class="btn btn-sm btn-light border-0" type="button" data-bs-toggle="dropdown">
                                                 <i class="bi bi-three-dots-vertical"></i>
@@ -264,14 +266,12 @@
                                                         <i class="bi bi-pencil"></i> Edit
                                                     </a>
                                                 </li>
-                                                {% if user == opinion.author %}
                                                 <li><hr class="dropdown-divider"></li>
                                                 <li>
                                                     <a class="dropdown-item text-danger" href="#" onclick="deleteOpinion({{ opinion.id }}, '{{ opinion.author.get_full_name|default:opinion.author.username|escapejs }}', '{{ opinion.created_at|date:"M d, Y g:i A"|escapejs }}')">
                                                         <i class="bi bi-trash"></i> Delete
                                                     </a>
                                                 </li>
-                                                {% endif %}
                                             </ul>
                                         </div>
                                         {% endif %}
@@ -316,27 +316,7 @@
                 </div>
             </div>
             <div class="card-body">
-                <!-- {% if images %}
-                <!-- File Statistics -->
-                <!-- <div class="row align-items-center mb-3">
-                    <div class="col-md-6">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-images text-success" style="font-size: 3rem;"></i>
-                            <div class="ms-3">
-                                <h4 class="mb-0">{{ images.count }}</h4>
-                                <p class="text-muted mb-0">Total File{{ images.count|pluralize }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        {% if dicom_count > 10 %}
-                        <div class="alert alert-info border-2 border-dark mb-0">
-                            <i class="bi bi-stack"></i> <strong>CBCT Series</strong>
-                            <span class="badge bg-white text-dark border-2 border-dark ms-2">{{ dicom_count }} slices</span>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div> -->
+            {% if images %}
                 
                 <!-- File Preview - Each CaseImage as separate card -->
                 {% if images.count > 0 %}
@@ -524,7 +504,7 @@
                 </div>
                 {% endif %}
                 
-                {% else %}
+            {% else %}
                 <div class="text-center py-4">
                     <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
                     <p class="text-muted mt-3 mb-3">No images uploaded yet</p>
@@ -532,7 +512,7 @@
                         <i class="bi bi-cloud-upload"></i> Upload First Image
                     </a>
                 </div>
-                {% endif %}
+            {% endif %}
             </div>
         </div>
         
@@ -621,9 +601,9 @@
     </div>
     
     <!-- Right Sidebar -->
-    <div class="col-lg-3">
+    <div class="col-12 col-md-4 col-lg-3 col-xl-3">
         <!-- Quick Actions -->
-        <div class="card border-2 mb-4">
+        <div class="card border-2 mb-4 sticky-top" style="top: 20px; z-index: 10;">
             <div class="card-header bg-primary text-dark border-2 border-dark">
                 <h5 class="mb-0">
                     <i class="bi bi-lightning"></i> Quick Actions
@@ -636,28 +616,40 @@
                     </a>
                     {% if user == case.created_by or user.profile.is_admin %}
                     {% if case.is_shared %}
-                    <form method="post" action="{% url 'cases:case_share' case.pk %}" class="d-inline">
+                    <!-- <form method="post" action="{% url 'cases:case_share' case.pk %}" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" name="cancel_sharing" value="1" 
                                 class="btn btn-danger border-2 border-dark"
                                 onclick="return confirm('Cancel sharing for this case?')">
                             <i class="bi bi-x-circle"></i> Cancel Sharing
                         </button>
-                    </form>
+                    </form> -->
                     <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
                         <i class="bi bi-share-fill"></i> Manage Sharing
                     </a>
                     {% else %}
-                    <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
-                        <i class="bi bi-share"></i> Share Case
-                    </a>
+                        {% if case.status == 'DRAFT' %}
+                        <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-outline-secondary border-2 border-dark disabled ">
+                            <i class="bi bi-share"></i> Share Case
+                        </a>
+                        {% else %}
+                        <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
+                            <i class="bi bi-share"></i> Share Case
+                        </a>
+                        {% endif %}
                     {% endif %}
                     <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-warning border-2 border-dark">
                         <i class="bi bi-pencil-square"></i> Edit Case
                     </a>
+                    {% if can_delete_case %}
                     <button type="button" class="btn btn-danger border-2 border-dark" data-bs-toggle="modal" data-bs-target="#deleteCaseModal">
                         <i class="bi bi-trash"></i> Delete Case
                     </button>
+                    {% else %}
+                    <button type="button" class="btn btn-danger border-2 border-dark" disabled title="Case has opinions from other users. Only HQ superuser can delete.">
+                        <i class="bi bi-trash"></i> Delete Case
+                    </button>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -672,7 +664,7 @@
             </div>
             <div class="card-body">
                 <dl class="row mb-0">
-                    <dt class="col-5 text-muted">Category:</dt>
+                    <!-- <dt class="col-5 text-muted">Category:</dt>
                     <dd class="col-7">
                         {% if case.category %}
                             <span class="badge bg-secondary border-1 border-dark">
@@ -681,7 +673,7 @@
                         {% else %}
                             -
                         {% endif %}
-                    </dd>
+                    </dd> -->
                     
                     <dt class="col-5 text-muted">Created By:</dt>
                     <dd class="col-7">{{ case.created_by.get_full_name|default:case.created_by.username }}</dd>
@@ -1249,13 +1241,31 @@ function deleteDicomSeries() {
                         <textarea class="form-control border-2 border-dark" id="opinionContent" name="content" rows="6" placeholder="Enter your clinical opinion..." required></textarea>
                         <small class="text-muted">Provide your professional assessment, observations, or recommendations for this case.</small>
                     </div>
-                    <div class="mb-3">
-                        <label for="opinionStatus" class="form-label">Status</label>
-                        <select class="form-select border-2 border-dark" id="opinionStatus" name="status">
-                            <option value="PUBLISHED" selected>Published</option>
-                            <option value="DRAFT">Draft</option>
-                        </select>
-                        <small class="text-muted">Draft opinions are only visible to you.</small>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="opinionStatus" class="form-label">Opinion Visibility</label>
+                                <select class="form-select border-2 border-dark" id="opinionStatus" name="status">
+                                    <option value="PUBLISHED" selected>Published</option>
+                                    <option value="DRAFT">Draft</option>
+                                </select>
+                                <small class="text-muted">Draft opinions are only visible to you.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="caseStatusUpdate" class="form-label">Update Case Status</label>
+                                <select class="form-select border-2 border-dark" id="caseStatusUpdate" name="case_status">
+                                    <option value="" selected>-- Keep Current Status --</option>
+                                    <option value="DRAFT" {% if case.status == 'DRAFT' %}disabled{% endif %}>Draft</option>
+                                    <option value="ACTIVE" {% if case.status == 'ACTIVE' %}disabled{% endif %}>Active</option>
+                                    <option value="IN_REVIEW" {% if case.status == 'IN_REVIEW' %}disabled{% endif %}>In Review</option>
+                                    <option value="COMPLETED" {% if case.status == 'COMPLETED' %}disabled{% endif %}>Completed</option>
+                                    <option value="ARCHIVED" {% if case.status == 'ARCHIVED' %}disabled{% endif %}>Archived</option>
+                                </select>
+                                <small class="text-muted">Current status: <strong>{{ case.get_status_display }}</strong></small>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1294,13 +1304,31 @@ function deleteDicomSeries() {
                         <textarea class="form-control border-2 border-dark" id="editOpinionContent" name="content" rows="6" placeholder="Enter your clinical opinion..." required></textarea>
                         <small class="text-muted">Provide your professional assessment, observations, or recommendations for this case.</small>
                     </div>
-                    <div class="mb-3">
-                        <label for="editOpinionStatus" class="form-label">Status</label>
-                        <select class="form-select border-2 border-dark" id="editOpinionStatus" name="status">
-                            <option value="PUBLISHED">Published</option>
-                            <option value="DRAFT">Draft</option>
-                        </select>
-                        <small class="text-muted">Draft opinions are only visible to you.</small>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editOpinionStatus" class="form-label">Opinion Visibility</label>
+                                <select class="form-select border-2 border-dark" id="editOpinionStatus" name="status">
+                                    <option value="PUBLISHED">Published</option>
+                                    <option value="DRAFT">Draft</option>
+                                </select>
+                                <small class="text-muted">Draft opinions are only visible to you.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editCaseStatusUpdate" class="form-label">Update Case Status</label>
+                                <select class="form-select border-2 border-dark" id="editCaseStatusUpdate" name="case_status">
+                                    <option value="" selected>-- Keep Current Status --</option>
+                                    <option value="DRAFT" {% if case.status == 'DRAFT' %}disabled{% endif %}>Draft</option>
+                                    <option value="ACTIVE" {% if case.status == 'ACTIVE' %}disabled{% endif %}>Active</option>
+                                    <option value="IN_REVIEW" {% if case.status == 'IN_REVIEW' %}disabled{% endif %}>In Review</option>
+                                    <option value="COMPLETED" {% if case.status == 'COMPLETED' %}disabled{% endif %}>Completed</option>
+                                    <option value="ARCHIVED" {% if case.status == 'ARCHIVED' %}disabled{% endif %}>Archived</option>
+                                </select>
+                                <small class="text-muted">Current status: <strong>{{ case.get_status_display }}</strong></small>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1371,12 +1399,18 @@ function deleteDicomSeries() {
                         <i class="bi bi-exclamation-circle"></i> Warning!
                     </h6>
                     <p>You are about to delete this entire case and all associated data.</p>
+                    {% if has_other_opinions %}
+                    <p class="text-danger fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill"></i> This case has clinical opinions from other users!
+                    </p>
+                    {% endif %}
                 </div>
                 <p class="fw-bold">Are you absolutely sure?</p>
                 <p>This action will permanently delete:</p>
                 <ul>
                     <li>All case information and clinical data</li>
                     <li>All associated images and DICOM files</li>
+                    <li>All clinical opinions from all contributors</li>
                     <li>All comments and activity history</li>
                 </ul>
                 <p class="text-danger">This cannot be undone!</p>

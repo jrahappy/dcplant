@@ -206,6 +206,13 @@ def case_detail(request, pk):
     else:
         template = "cases/case_detail.html"
 
+    # Check if case can be deleted by current user
+    has_other_opinions = case.opinions.filter(is_deleted=False).exclude(author=request.user).exists()
+    can_delete_case = (
+        request.user.is_superuser or  # Superuser can always delete
+        (not has_other_opinions and (request.user == case.created_by or profile.is_admin))  # Others only if no other opinions
+    )
+    
     context = {
         "case": case,
         "comments": comments,
@@ -216,6 +223,8 @@ def case_detail(request, pk):
         "regular_images_count": regular_images_count,
         "pdf_count": pdf_count,
         "opinions": opinions,
+        "can_delete_case": can_delete_case,
+        "has_other_opinions": has_other_opinions,
     }
     return render(request, template, context)
 
@@ -411,17 +420,26 @@ def case_delete(request, pk):
     """Delete a case"""
     profile = ensure_user_profile(request.user)
     
-    # Staff users can delete any case, others only from their organization
-    if request.user.is_staff:
+    # Get the case
+    if request.user.is_superuser:
+        case = get_object_or_404(Case, pk=pk)
+    elif request.user.is_staff:
         case = get_object_or_404(Case, pk=pk)
     else:
         case = get_object_or_404(Case, pk=pk, organization=profile.organization)
 
-    # Check permissions for non-staff users
-    if not request.user.is_staff and not (
-        request.user == case.created_by or profile.is_admin
-    ):
-        return HttpResponseForbidden("You don't have permission to delete this case.")
+    # Check if case has opinions from other authors (excluding deleted opinions)
+    has_other_opinions = case.opinions.filter(is_deleted=False).exclude(author=request.user).exists()
+    
+    # If case has opinions from other authors, only superuser can delete
+    if has_other_opinions and not request.user.is_superuser:
+        messages.error(request, "This case has clinical opinions from other users and cannot be deleted. Only HQ superuser can delete cases with multiple contributors.")
+        return redirect("cases:case_detail", pk=case.pk)
+    
+    # Check permissions for non-superuser/non-staff users
+    if not request.user.is_superuser and not request.user.is_staff:
+        if not (request.user == case.created_by or profile.is_admin):
+            return HttpResponseForbidden("You don't have permission to delete this case.")
 
     case_number = case.case_number
     case.delete()
@@ -451,6 +469,7 @@ def add_opinion(request, pk):
     # Get the opinion content from POST data
     content = request.POST.get('content', '').strip()
     status = request.POST.get('status', 'PUBLISHED')
+    case_status = request.POST.get('case_status', '').strip()
     
     if content:
         # Create the opinion
@@ -461,15 +480,30 @@ def add_opinion(request, pk):
             status=status
         )
         
-        # Log activity
+        # Update case status if requested
+        if case_status and case_status != case.status:
+            old_status = case.get_status_display()
+            case.status = case_status
+            case.save()
+            
+            # Log status change activity
+            CaseActivity.objects.create(
+                case=case,
+                user=request.user,
+                activity_type="STATUS_CHANGED",
+                description=f"Status changed from {old_status} to {case.get_status_display()}",
+            )
+            messages.success(request, f"Clinical opinion added and case status updated to {case.get_status_display()}!")
+        else:
+            messages.success(request, "Clinical opinion added successfully!")
+        
+        # Log opinion activity
         CaseActivity.objects.create(
             case=case,
             user=request.user,
             activity_type="COMMENTED",
             description=f"Added clinical opinion",
         )
-        
-        messages.success(request, "Clinical opinion added successfully!")
     else:
         messages.error(request, "Opinion content cannot be empty.")
     
@@ -483,13 +517,14 @@ def update_opinion(request, pk):
     opinion = get_object_or_404(CaseOpinion, pk=pk)
     case = opinion.case
     
-    # Check permissions - only author or staff can edit
-    if request.user != opinion.author and not request.user.is_staff:
+    # Check permissions - only author can edit
+    if request.user != opinion.author:
         return HttpResponseForbidden("You don't have permission to edit this opinion.")
     
     # Get the updated content from POST data
     content = request.POST.get('content', '').strip()
     status = request.POST.get('status', opinion.status)
+    case_status = request.POST.get('case_status', '').strip()
     
     if content:
         # Update the opinion
@@ -497,15 +532,30 @@ def update_opinion(request, pk):
         opinion.status = status
         opinion.save()
         
-        # Log activity
+        # Update case status if requested
+        if case_status and case_status != case.status:
+            old_status = case.get_status_display()
+            case.status = case_status
+            case.save()
+            
+            # Log status change activity
+            CaseActivity.objects.create(
+                case=case,
+                user=request.user,
+                activity_type="STATUS_CHANGED",
+                description=f"Status changed from {old_status} to {case.get_status_display()}",
+            )
+            messages.success(request, f"Clinical opinion updated and case status changed to {case.get_status_display()}!")
+        else:
+            messages.success(request, "Clinical opinion updated successfully!")
+        
+        # Log opinion update activity
         CaseActivity.objects.create(
             case=case,
             user=request.user,
             activity_type="UPDATED",
             description=f"Updated clinical opinion",
         )
-        
-        messages.success(request, "Clinical opinion updated successfully!")
     else:
         messages.error(request, "Opinion content cannot be empty.")
     
@@ -866,7 +916,12 @@ def comment_delete(request, pk):
 def image_upload(request, case_pk):
     """Upload images to a case - supports multiple files"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=case_pk, organization=profile.organization)
+    user_org = profile.organization
+    
+    # Allow upload if case belongs to user's org OR is shared with user's org
+    from django.db.models import Q
+    case_filter = Q(pk=case_pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
 
     if request.method == "POST":
         print(f"DEBUG: POST request received")
@@ -1073,7 +1128,12 @@ def image_edit(request, pk):
 def image_list(request, case_pk):
     """List all images for a case"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=case_pk, organization=profile.organization)
+    user_org = profile.organization
+    
+    # Allow access if case belongs to user's org OR is shared with user's org
+    from django.db.models import Q
+    case_filter = Q(pk=case_pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
     
     # Sort all images by created date
     images = case.images.select_related("uploaded_by").prefetch_related("items").order_by(
@@ -1379,10 +1439,16 @@ def image_delete(request, pk):
     profile = ensure_user_profile(request.user)
     image = get_object_or_404(CaseImage, pk=pk)
     case = image.case
+    user_org = profile.organization
 
-    # Check permissions
+    # First check if user has access to the case
+    has_case_access = (case.organization == user_org) or (case.is_shared and user_org in case.share_with_branches.all())
+    if not has_case_access:
+        return HttpResponseForbidden("You don't have access to this case.")
+
+    # Check delete permissions - only uploader or superuser can delete
     if not (
-        request.user == image.uploaded_by or profile.is_admin or request.user.is_staff
+        request.user == image.uploaded_by or request.user.is_superuser
     ):
         return HttpResponseForbidden("You don't have permission to delete this image.")
 

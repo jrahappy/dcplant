@@ -29,9 +29,11 @@
             <button class="btn btn-success me-2" onclick="downloadAllImages({{ case.pk }})">
                 <i class="bi bi-download"></i> Download All
             </button>
+            {% if user == image.uploaded_by or user.is_superuser %}
             <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
                 <i class="bi bi-trash"></i> Delete Group
             </button>
+            {% endif %}
             <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Case
             </a>

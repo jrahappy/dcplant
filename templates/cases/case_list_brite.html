@@ -126,7 +126,7 @@
                                    class="btn btn-sm btn-primary border-2" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                {% if user == case.created_by or user.profile.is_admin or user.is_staff %}
+                                {% if user == case.created_by or user.is_superuser or user.is_staff %}
                                 
                                     {% if case.status == "DRAFT" and user == case.created_by %}
                                     <form method="post" action="{% url 'cases:case_publish' case.pk %}" style="display: inline;">
@@ -143,10 +143,10 @@
                                         </button>
                                     </form>
                                     {% else %}
-                                    <button type="button" class="btn btn-sm btn-danger border-2" 
+                                    <!-- <button type="button" class="btn btn-sm btn-danger border-2" 
                                             onclick="confirmDelete({{ case.pk }})" title="Delete">
                                         <i class="bi bi-trash"></i>
-                                    </button>
+                                    </button> -->
                                     {% endif %}
                                 {% endif %}
                             </div>

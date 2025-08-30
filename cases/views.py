@@ -245,7 +245,8 @@ def case_detail(request, pk):
         case.opinions.filter(is_deleted=False).exclude(author=request.user).exists()
     )
     can_delete_case = request.user.is_superuser or (  # Superuser can always delete
-        not has_other_opinions and (request.user == case.created_by or profile.is_admin)
+        not has_other_opinions
+        and (request.user == case.created_by or request.user == request.user.is_staff)
     )  # Others only if no other opinions
 
     context = {

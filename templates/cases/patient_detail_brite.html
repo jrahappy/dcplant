@@ -15,7 +15,7 @@
                 <div>
                     <h1 class="page-title mb-0">{{ patient.full_name }}</h1>
                     <div class="text-muted">
-                        <span class="badge bg-light text-dark border-2 border-dark me-2">MRN: {{ patient.mrn }}</span>
+                        <span class="badge bg-light text-dark border-2 border-dark me-2">Chart#: {{ patient.mrn }}</span>
                         <span class="badge bg-light text-dark border-2 border-dark">{{ patient.age }} years old</span>
                     </div>
                 </div>
@@ -48,24 +48,12 @@
                 <div class="row">
                     <div class="col-md-6">
                         <div class="info-group mb-3">
-                            <label class="text-muted small text-uppercase">Date of Birth</label>
-                            <p class="mb-0 fw-semibold">{{ patient.date_of_birth|date:"F d, Y" }}</p>
-                        </div>
-                        
-                        <div class="info-group mb-3">
                             <label class="text-muted small text-uppercase">Gender</label>
                             <p class="mb-0 fw-semibold">{{ patient.get_gender_display|default:"Not specified" }}</p>
                         </div>
                         
                         <div class="info-group mb-3">
-                            <label class="text-muted small text-uppercase">Blood Type</label>
-                            <p class="mb-0 fw-semibold">{{ patient.blood_type|default:"Not recorded" }}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="info-group mb-3">
-                            <label class="text-muted small text-uppercase">Email Address</label>
+                            <label class="text-muted small text-uppercase">Email </label>
                             <p class="mb-0 fw-semibold">
                                 {% if patient.email %}
                                     <i class="bi bi-envelope text-primary"></i> {{ patient.email }}
@@ -73,6 +61,14 @@
                                     <span class="text-muted">Not provided</span>
                                 {% endif %}
                             </p>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="info-group mb-3">
+                            <label class="text-muted small text-uppercase">Date of Birth</label>
+                            <p class="mb-0 fw-semibold">{{ patient.date_of_birth|date:"F d, Y" }}</p>
                         </div>
                         
                         <div class="info-group mb-3">
@@ -86,7 +82,7 @@
                             </p>
                         </div>
                         
-                        <div class="info-group mb-3">
+                        <!-- <div class="info-group mb-3">
                             <label class="text-muted small text-uppercase">Address</label>
                             <p class="mb-0 fw-semibold">
                                 {% if patient.address %}
@@ -95,7 +91,7 @@
                                     <span class="text-muted">Not provided</span>
                                 {% endif %}
                             </p>
-                        </div>
+                        </div> -->
                     </div>
                 </div>
             </div>

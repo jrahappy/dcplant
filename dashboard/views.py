@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from django.conf import settings as django_settings
 from cases.models import Case, Patient, Category, CaseActivity
 from blog.models import BlogPost
+import json
 
 
 @login_required
@@ -44,16 +45,17 @@ def dashboard_home(request):
     
     # Get statistics based on user's access level
     if is_hq:
-        # HQ users see all organizations' data
-        total_cases = Case.objects.all().count()
+        # HQ users see all organizations' data (excluding draft cases)
+        total_cases = Case.objects.exclude(status='DRAFT').count()
         active_cases = Case.objects.filter(
             status__in=['ACTIVE', 'IN_REVIEW']
         ).count()
         total_patients = Patient.objects.all().count()
         total_organizations = Organization.objects.filter(is_active=True).count()
         
-        # Recent cases from all organizations
-        recent_cases = Case.objects.all().select_related(
+        # Recent cases from all organizations (exclude drafts not created by current user)
+        recent_cases_filter = ~Q(status="DRAFT") | Q(created_by=request.user)
+        recent_cases = Case.objects.filter(recent_cases_filter).select_related(
             'patient', 'category', 'assigned_to', 'organization'
         ).order_by('-created_at')[:10]
         
@@ -67,13 +69,13 @@ def dashboard_home(request):
         
         # Organization statistics
         org_stats = Organization.objects.filter(is_active=True).annotate(
-            case_count=Count('cases'),
-            patient_count=Count('patients')
+            case_count=Count('cases', distinct=True),
+            patient_count=Count('patients', distinct=True)
         ).order_by('-case_count')[:5]
         
     else:
-        # Regular users see only their organization's data
-        total_cases = Case.objects.filter(organization=user_org).count()
+        # Regular users see only their organization's data (excluding draft cases)
+        total_cases = Case.objects.filter(organization=user_org).exclude(status='DRAFT').count()
         active_cases = Case.objects.filter(
             organization=user_org,
             status__in=['ACTIVE', 'IN_REVIEW']
@@ -81,8 +83,9 @@ def dashboard_home(request):
         total_patients = Patient.objects.filter(organization=user_org).count()
         total_organizations = 1
         
-        # Recent cases from user's organization
-        recent_cases = Case.objects.filter(organization=user_org).select_related(
+        # Recent cases from user's organization (exclude drafts not created by current user)
+        recent_cases_filter = Q(organization=user_org) & (~Q(status="DRAFT") | Q(created_by=request.user))
+        recent_cases = Case.objects.filter(recent_cases_filter).select_related(
             'patient', 'category', 'assigned_to'
         ).order_by('-created_at')[:5]
         
@@ -98,9 +101,69 @@ def dashboard_home(request):
         
         org_stats = None
     
+    # Calculate completed today for branch users
+    from datetime import date
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    if is_hq:
+        # For HQ, we don't need completed_today (they see organizations count instead)
+        completed_today = None
+    else:
+        # Count cases that were updated to COMPLETED status today
+        completed_today = Case.objects.filter(
+            organization=user_org,
+            status='COMPLETED',
+            updated_at__gte=today_start,
+            updated_at__lte=today_end
+        ).count()
+    
     # Format status display
     for stat in case_stats:
         stat['status'] = dict(Case.STATUS_CHOICES).get(stat['status'], stat['status'])
+    
+    # Prepare data for status chart
+    status_counts = {status[0]: 0 for status in Case.STATUS_CHOICES}
+    for stat in case_stats:
+        # Get the original status key (before formatting)
+        for key, value in Case.STATUS_CHOICES:
+            if value == stat['status']:
+                status_counts[key] = stat['count']
+                break
+    
+    # Calculate monthly case counts for the last 6 months
+    from datetime import datetime, timedelta
+    monthly_data = []
+    month_labels = []
+    
+    for i in range(5, -1, -1):
+        # Calculate the start of each month
+        today = timezone.now()
+        month_start = (today - timedelta(days=30*i)).replace(day=1)
+        if i == 0:
+            month_end = today
+        else:
+            # Get the first day of next month
+            if month_start.month == 12:
+                month_end = month_start.replace(year=month_start.year+1, month=1, day=1)
+            else:
+                month_end = month_start.replace(month=month_start.month+1, day=1)
+        
+        # Count cases created in this month
+        if is_hq:
+            month_count = Case.objects.filter(
+                created_at__gte=month_start,
+                created_at__lt=month_end
+            ).count()
+        else:
+            month_count = Case.objects.filter(
+                organization=user_org,
+                created_at__gte=month_start,
+                created_at__lt=month_end
+            ).count()
+        
+        monthly_data.append(month_count)
+        month_labels.append(month_start.strftime('%b'))
     
     context = {
         'total_cases': total_cases,
@@ -112,6 +175,16 @@ def dashboard_home(request):
         'case_stats': case_stats,
         'org_stats': org_stats,
         'is_hq': is_hq,
+        'completed_today': completed_today if not is_hq else None,
+        # Status chart data
+        'draft_cases': status_counts.get('DRAFT', 0),
+        'open_cases': status_counts.get('ACTIVE', 0),
+        'in_review_cases': status_counts.get('IN_REVIEW', 0),
+        'completed_cases': status_counts.get('COMPLETED', 0),
+        'cancelled_cases': status_counts.get('CANCELLED', 0),
+        # Monthly chart data
+        'monthly_labels': json.dumps(month_labels),
+        'monthly_data': json.dumps(monthly_data),
     }
     return render(request, template, context)
 

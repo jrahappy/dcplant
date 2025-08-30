@@ -168,18 +168,23 @@
                 </span>
                 
                 <!-- Image Display -->
-                {% if image.is_dicom or image.image_type == 'DICOM' %}
+                {% if image.image_type == 'DICOM' %}
                 <a href="{% url 'cases:dicom_viewer' image.pk %}" class="d-block text-decoration-none">
                     <div class="dicom-indicator">
                         <i class="bi bi-file-earmark-medical" style="font-size: 3rem;"></i>
                         <strong class="mt-2">DICOM</strong>
-                        <small>{{ image.filename }}</small>
+                        <small>{{ image.item_count }} files</small>
                     </div>
                 </a>
-                {% else %}
-                <img src="{{ image.image.url }}" class="card-img-top image-thumbnail" 
+                {% elif image.first_item %}
+                <img src="{{ image.first_item.image.url }}" class="card-img-top image-thumbnail" 
                      alt="{{ image.title }}"
                      data-bs-toggle="modal" data-bs-target="#imageModal{{ image.pk }}">
+                {% else %}
+                <div class="dicom-indicator">
+                    <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                    <small class="text-muted">No preview</small>
+                </div>
                 {% endif %}
             </div>
             
@@ -205,16 +210,18 @@
                 
                 <div class="d-flex justify-content-between mt-2">
                     <div>
-                        {% if image.is_dicom or image.image_type == 'DICOM' %}
+                        {% if image.image_type == 'DICOM' %}
                         <a href="{% url 'cases:dicom_viewer' image.pk %}" 
                            class="btn btn-sm btn-primary border-2 border-dark" title="View DICOM">
                             <i class="bi bi-eye"></i>
                         </a>
                         {% endif %}
-                        <a href="{{ image.image.url }}" download 
+                        {% if image.first_item %}
+                        <a href="{{ image.first_item.image.url }}" download 
                            class="btn btn-sm btn-outline-success border-2 border-dark" title="Download">
                             <i class="bi bi-download"></i>
                         </a>
+                        {% endif %}
                     </div>
                     {% if user == image.uploaded_by or user.profile.is_admin %}
                     <a href="{% url 'cases:image_edit' image.pk %}" 
@@ -237,7 +244,14 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center p-0">
-                    <img src="{{ image.image.url }}" class="img-fluid" alt="{{ image.title }}">
+                    {% if image.first_item %}
+                    <img src="{{ image.first_item.image.url }}" class="img-fluid" alt="{{ image.title }}">
+                    {% else %}
+                    <div class="p-5">
+                        <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                        <p class="text-muted mt-3">No preview available</p>
+                    </div>
+                    {% endif %}
                 </div>
                 {% if image.description %}
                 <div class="modal-footer border-3 border-dark">

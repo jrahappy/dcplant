@@ -11,7 +11,7 @@
                 <i class="bi bi-folder2-open"></i> Cases
             </h1>
             <div>
-                <a href="{% url 'cases:patient_create' %}" class="btn btn-outline-primary border-2 border-dark me-2">
+                <a href="{% url 'cases:patient_create' %}" class="btn btn-primary border-2 border-dark me-2">
                     <i class="bi bi-person-plus me-1"></i>New Patient
                 </a>
                 <a href="{% url 'cases:case_create' %}" class="btn btn-primary border-2 border-dark">
@@ -41,9 +41,6 @@
                 {{ filter_form.priority }}
             </div>
             <div class="col-md-2">
-                {{ filter_form.category }}
-            </div>
-            <div class="col-md-2">
                 <button type="submit" class="btn btn-primary border-2 border-dark w-100">
                     <i class="bi bi-search"></i> Filter
                 </button>
@@ -70,22 +67,21 @@
                         <th class="border-2 border-dark">Case #</th>
                         <th class="border-2 border-dark">Patient</th>
                         <th class="border-2 border-dark">Chief Complaint</th>
-                        <th class="border-2 border-dark">Category</th>
                         <th class="border-2 border-dark">Status</th>
                         <th class="border-2 border-dark">Priority</th>
-                        <th class="border-2 border-dark">Assigned To</th>
                         <th class="border-2 border-dark">Created</th>
                         <th class="border-2 border-dark">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for case in page_obj %}
-                    <tr>
+                    <tr class="{% if case.status == 'DRAFT' %}bg-light border-start border-warning border-3{% endif %}">
                         <td class="border-2 border-dark">
                             <a href="{% url 'cases:case_detail' case.pk %}" class="text-decoration-none">
                                 <span class="case-number">#{{ case.case_number }}</span>
                                 {% if case.is_shared %}
-                                    <span class="badge bg-info text-dark ms-2" title="Shared case">
+                                    <br>
+                                    <span class="badge bg-info text-dark" title="Shared case">
                                         <i class="bi bi-share"></i>
                                     </span>
                                 {% endif %}
@@ -109,14 +105,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="border-2 border-dark">{{ case.chief_complaint|truncatechars:50 }}</td>
-                        <td class="border-2 border-dark">
-                            {% if case.category %}
-                                <span class="badge bg-info text-dark border-2 border-dark">{{ case.category.name }}</span>
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
+                        <td class="border-2 border-dark">{{ case.chief_complaint|striptags|truncatechars:50 }}</td>
                         <td class="border-2 border-dark">
                             <span class="badge badge-{{ case.status|lower }} border-2 border-dark">
                                 {{ case.get_status_display }}
@@ -127,36 +116,38 @@
                                 <i class="bi bi-flag-fill"></i> {{ case.get_priority_display }}
                             </span>
                         </td>
-                        <td class="border-2 border-dark">
-                            {% if case.assigned_to %}
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar-circle-sm me-2">
-                                        {{ case.assigned_to.first_name.0|default:"U" }}{{ case.assigned_to.last_name.0|default:"" }}
-                                    </div>
-                                    {{ case.assigned_to.get_full_name|default:case.assigned_to.username }}
-                                </div>
-                            {% else %}
-                                <span class="text-muted">Unassigned</span>
-                            {% endif %}
-                        </td>
+                        
                         <td class="border-2 border-dark">
                             <small>{{ case.created_at|date:"M d, Y" }}</small>
                         </td>
                         <td class="border-2 border-dark">
                             <div class="btn-group" role="group">
                                 <a href="{% url 'cases:case_detail' case.pk %}" 
-                                   class="btn btn-sm btn-outline-primary border-2" title="View">
+                                   class="btn btn-sm btn-primary border-2" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 {% if user == case.created_by or user.profile.is_admin or user.is_staff %}
-                                <a href="{% url 'cases:case_update' case.pk %}" 
-                                   class="btn btn-sm btn-outline-secondary border-2" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <button type="button" class="btn btn-sm btn-outline-danger border-2" 
-                                        onclick="confirmDelete({{ case.pk }})" title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                                
+                                    {% if case.status == "DRAFT" and user == case.created_by %}
+                                    <form method="post" action="{% url 'cases:case_publish' case.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success border-2" title="Publish">
+                                            <i class="bi bi-send"></i>
+                                        </button>
+                                    </form>
+                                    {% elif user == case.created_by %}
+                                    <form method="post" action="{% url 'cases:case_to_draft' case.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-warning border-2" title="Revert to Draft">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <button type="button" class="btn btn-sm btn-danger border-2" 
+                                            onclick="confirmDelete({{ case.pk }})" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </td>
@@ -243,6 +234,28 @@
 </div>
 
 <style>
+/* Status badge colors */
+.badge-draft { 
+    background-color: #ffc107 !important; 
+    color: #000 !important;
+}
+.badge-active { 
+    background-color: #28a745 !important; 
+    color: white !important;
+}
+.badge-in_review { 
+    background-color: #17a2b8 !important; 
+    color: white !important;
+}
+.badge-completed { 
+    background-color: #6c757d !important; 
+    color: white !important;
+}
+.badge-archived { 
+    background-color: #343a40 !important; 
+    color: white !important;
+}
+
 .avatar-circle-sm {
     width: 25px;
     height: 25px;
@@ -255,6 +268,15 @@
     font-size: 0.75rem;
     font-weight: 600;
     border: 2px solid var(--bs-dark);
+}
+
+.case-number {
+    color: #212529 !important;  /* Dark gray/black for better visibility */
+    font-weight: 600;
+}
+
+a:hover .case-number {
+    text-decoration: underline !important;  /* Underline on hover */
 }
 </style>
 

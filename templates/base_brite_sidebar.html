@@ -20,6 +20,82 @@
     <link rel="stylesheet" href="{% static 'css/brite-custom.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar-layout.css' %}">
     
+    <!-- Global Button Hover Styles -->
+    <style>
+        /* Override text-primary for better visibility */
+        .text-primary {
+            color: #2c7a2c !important;  /* Darker green for better text visibility */
+        }
+        
+        h1 .text-primary, h2 .text-primary, h3 .text-primary, 
+        h4 .text-primary, h5 .text-primary, h6 .text-primary {
+            color: #2c7a2c !important;  /* Darker green for headings */
+        }
+        
+        /* Keep original primary color for backgrounds and borders */
+        .bg-primary {
+            background-color: #a2e436 !important;
+        }
+        
+        .border-primary {
+            border-color: #a2e436 !important;
+        }
+        
+        /* Button hover effects - solid to outline */
+        .btn-primary:hover {
+            background-color: transparent !important;
+            color: var(--bs-primary) !important;
+            border-color: var(--bs-primary) !important;
+        }
+        
+        .btn-success:hover {
+            background-color: transparent !important;
+            color: var(--bs-success) !important;
+            border-color: var(--bs-success) !important;
+        }
+        
+        .btn-danger:hover {
+            background-color: transparent !important;
+            color: var(--bs-danger) !important;
+            border-color: var(--bs-danger) !important;
+        }
+        
+        .btn-warning:hover {
+            background-color: transparent !important;
+            color: var(--bs-warning) !important;
+            border-color: var(--bs-warning) !important;
+        }
+        
+        .btn-info:hover {
+            background-color: transparent !important;
+            color: var(--bs-info) !important;
+            border-color: var(--bs-info) !important;
+        }
+        
+        .btn-secondary:hover {
+            background-color: transparent !important;
+            color: #495057 !important;  /* Darker gray for better visibility */
+            border-color: #6c757d !important;
+        }
+        
+        .btn-dark:hover {
+            background-color: transparent !important;
+            color: var(--bs-dark) !important;
+            border-color: var(--bs-dark) !important;
+        }
+        
+        /* Keep button group buttons consistent */
+        .btn-group .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Dropdown toggle special handling */
+        .dropdown-toggle:hover {
+            opacity: 0.9;
+        }
+    </style>
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -155,29 +231,15 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{% url 'cases:case_list' %}?status=in_progress" class="nav-link sub-link">
-                            <i class="bi bi-hourglass-split"></i> In Progress
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'cases:case_list' %}?status=review" class="nav-link sub-link">
-                            <i class="bi bi-clipboard-check"></i> Under Review
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'cases:case_create' %}" class="nav-link sub-link {% if request.resolver_match.url_name == 'case_create' %}active{% endif %}">
+                        <a href="{% url 'cases:case_create' %}" 
+                           class="nav-link sub-link {% if request.resolver_match.url_name == 'case_create' %}active{% endif %}"
+                           onclick="return checkDraftCase(event, this)">
                             <i class="bi bi-plus-circle"></i> New Case
                         </a>
                     </li>
                 </ul>
             </li>
             
-            <li class="nav-item">
-                <a href="{% url 'blog:post_list' %}" class="nav-link {% if 'blog' in request.resolver_match.url_name %}active{% endif %}">
-                    <i class="bi bi-journal-text"></i>
-                    <span>Blog</span>
-                </a>
-            </li>
             
             <!-- <li class="nav-item">
                 <a href="#reportsSubmenu" class="nav-link" data-bs-toggle="collapse">
@@ -241,12 +303,6 @@
                 </a>
             </li>
             
-            <li class="nav-item">
-                <a href="{% url 'blog:post_create' %}" class="nav-link">
-                    <i class="bi bi-pencil-square"></i>
-                    <span>Write Blog Post</span>
-                </a>
-            </li>
         </ul>
         
         <!-- Sidebar Footer -->
@@ -390,6 +446,41 @@
                 themeIcon.className = 'bi bi-sun-fill';
             }
         });
+        
+        // Check for draft cases before creating new case
+        function checkDraftCase(event, link) {
+            event.preventDefault();
+            
+            // Make AJAX call to check for draft cases
+            fetch('/cases/api/check-draft/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.has_draft) {
+                        // Show confirmation dialog
+                        const message = `You have an existing draft case "${data.case_number}". Would you like to:\n\n` +
+                                      `• Click OK to continue editing the draft\n` +
+                                      `• Click Cancel to create a new case`;
+                        
+                        if (confirm(message)) {
+                            // Redirect to the draft case
+                            window.location.href = `/cases/case/${data.case_id}/`;
+                        } else {
+                            // Continue to create new case
+                            window.location.href = link.href;
+                        }
+                    } else {
+                        // No draft case, proceed normally
+                        window.location.href = link.href;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking draft:', error);
+                    // On error, proceed to create new case
+                    window.location.href = link.href;
+                });
+            
+            return false;
+        }
         
         // Handle window resize
         window.addEventListener('resize', function() {

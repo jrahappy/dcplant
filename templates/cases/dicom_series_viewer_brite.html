@@ -250,6 +250,9 @@
             <ol class="breadcrumb border-2 border-dark">
                 <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
                 <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' case.pk %}">{{ case.case_number }}</a></li>
+                {% if from_image %}
+                <li class="breadcrumb-item"><a href="{% url 'cases:image_detail' from_image.pk %}">{{ from_image.title }}</a></li>
+                {% endif %}
                 <li class="breadcrumb-item active">CBCT Series Viewer</li>
             </ol>
         </nav>
@@ -269,9 +272,15 @@
                 </p>
             </div>
             <div>
+                {% if from_image %}
+                <a href="{% url 'cases:image_detail' from_image.pk %}" class="btn btn-secondary border-2 border-dark">
+                    <i class="bi bi-arrow-left"></i> Back to Image Group
+                </a>
+                {% else %}
                 <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-secondary border-2 border-dark">
                     <i class="bi bi-arrow-left"></i> Back to Case
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>

@@ -1,0 +1,323 @@
+{% extends 'base_brite_sidebar.html' %}
+{% load static %}
+
+{% block title %}{{ image.title }} - Image Details{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mt-3">
+        <ol class="breadcrumb bg-light px-3 py-2 rounded">
+            <li class="breadcrumb-item"><a href="{% url 'cases:case_list' %}">Cases</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'cases:case_detail' case.pk %}">{{ case.case_number }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ image.title }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">
+            <i class="bi bi-images"></i> Image Group Details
+        </h2>
+        <div>
+            {% if dicom_count > 0 %}
+            <a href="{% url 'cases:dicom_series_viewer' case.pk %}?from_image={{ image.pk }}" class="btn btn-info me-2">
+                <i class="bi bi-layers"></i> DICOM Viewer
+            </a>
+            {% endif %}
+            <button class="btn btn-success me-2" onclick="downloadAllImages({{ case.pk }})">
+                <i class="bi bi-download"></i> Download All
+            </button>
+            <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="bi bi-trash"></i> Delete Group
+            </button>
+            <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Case
+            </a>
+        </div>
+    </div>
+
+    <!-- Image Group Information -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-info-circle"></i> Image Group Information
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="text-muted small">Title</label>
+                        <p class="mb-1"><strong>{{ image.title }}</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Description</label>
+                        <p class="mb-1">{{ image.description|default:"No description provided" }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Total Files</label>
+                        <p class="mb-1"><strong>{{ total_items }}</strong></p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="text-muted small">Uploaded By</label>
+                        <p class="mb-1">{{ image.uploaded_by.get_full_name|default:image.uploaded_by.username }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Upload Date</label>
+                        <p class="mb-1">{{ image.created_at|date:"Y-m-d H:i" }}</p>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="text-muted small">DICOM Files</label>
+                                <p class="mb-1"><span class="badge bg-info">{{ dicom_count }}</span></p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="text-muted small">Photo Files</label>
+                                <p class="mb-1"><span class="badge bg-success">{{ photo_count }}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Items -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-file-earmark-image"></i> Files in this Group ({{ total_items }})
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if items %}
+                <div class="row g-3">
+                    {% for item in items %}
+                    <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                        <div class="card h-100 shadow-sm">
+                            {% if item.is_dicom %}
+                                <!-- DICOM File with Thumbnail -->
+                                <div class="position-relative" style="height: 150px; overflow: hidden; background: #000;">
+                                    <img src="{% url 'cases:dicom_item_thumbnail' item.pk %}" 
+                                         class="card-img-top" 
+                                         alt="DICOM: {{ item.filename }}"
+                                         style="height: 100%; width: 100%; object-fit: contain;"
+                                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'d-flex align-items-center justify-content-center h-100 bg-dark text-white\'><div class=\'text-center\'><i class=\'bi bi-file-medical\' style=\'font-size: 2.5rem;\'></i><p class=\'mt-2 mb-0 small\'>DICOM</p></div></div>';">
+                                    <div class="position-absolute top-0 end-0 m-1">
+                                        <span class="badge bg-dark">DICOM</span>
+                                    </div>
+                                </div>
+                            {% elif item.image_type == "PDF" %}
+                                <!-- PDF File -->
+                                <div class="card-img-top bg-danger text-white d-flex align-items-center justify-content-center" style="height: 150px;">
+                                    <div class="text-center">
+                                        <i class="bi bi-file-earmark-pdf" style="font-size: 2.5rem;"></i>
+                                        <p class="mt-2 mb-0 small">PDF</p>
+                                    </div>
+                                </div>
+                            {% elif item.image_type == "ZIP" %}
+                                <!-- ZIP File -->
+                                <div class="card-img-top bg-warning text-dark d-flex align-items-center justify-content-center" style="height: 150px;">
+                                    <div class="text-center">
+                                        <i class="bi bi-file-earmark-zip" style="font-size: 2.5rem;"></i>
+                                        <p class="mt-2 mb-0 small">ZIP</p>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <!-- Regular Image -->
+                                <div class="position-relative" style="height: 150px; overflow: hidden;">
+                                    <img src="{{ item.image.url }}" 
+                                         class="card-img-top" 
+                                         alt="{{ item.filename }}"
+                                         style="height: 100%; width: 100%; object-fit: cover;">
+                                </div>
+                            {% endif %}
+                            
+                            <div class="card-body p-2">
+                                <p class="card-text small mb-1 text-truncate" title="{{ item.filename }}">
+                                    <strong>{{ item.filename|truncatechars:20 }}</strong>
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-secondary small">{{ item.get_image_type_display }}</span>
+                                    {% if item.is_primary %}
+                                        <span class="badge bg-primary small">Primary</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="card-footer bg-light p-1">
+                                <div class="btn-group btn-group-sm w-100" role="group">
+                                    {% if item.is_dicom %}
+                                        <button type="button"
+                                                onclick="showThumbnail('{% url 'cases:dicom_item_thumbnail' item.pk %}', 'DICOM')"
+                                                class="btn btn-sm btn-primary py-1"
+                                                title="View Thumbnail">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    {% elif item.image_type not in "PDF,ZIP" %}
+                                        <button type="button"
+                                                onclick="showThumbnail('{{ item.image.url }}', '{{ item.image_type }}')"
+                                                class="btn btn-sm btn-primary py-1"
+                                                title="View Thumbnail">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    {% endif %}
+                                    <a href="{{ item.image.url }}" 
+                                       download 
+                                       class="btn btn-sm btn-success py-1">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> No files in this image group.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Confirm Delete
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this entire image group?</p>
+                <p class="mb-0"><strong>Group:</strong> {{ image.title }}</p>
+                <p class="mb-0"><strong>Files:</strong> {{ total_items }} file(s)</p>
+                <div class="alert alert-warning mt-3">
+                    <i class="bi bi-exclamation-triangle"></i> This action cannot be undone. All {{ total_items }} file(s) in this group will be permanently deleted.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{% url 'cases:image_delete' image.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete Group
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Thumbnail Modal -->
+<div class="modal fade" id="thumbnailModal" tabindex="-1" aria-labelledby="thumbnailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="thumbnailModalLabel">
+                    <i class="bi bi-image"></i> Image Thumbnail
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="thumbnailImage" src="" alt="Thumbnail" style="max-width: 100%; max-height: 500px; object-fit: contain;">
+            </div>
+            <div class="modal-footer">
+                <a id="thumbnailDownload" href="" download class="btn btn-success">
+                    <i class="bi bi-download"></i> Download Original
+                </a>
+                <a id="thumbnailViewFull" href="" target="_blank" class="btn btn-primary">
+                    <i class="bi bi-arrows-fullscreen"></i> View Full Size
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Function to show thumbnail in modal
+function showThumbnail(imageUrl, imageType) {
+    // Set the thumbnail image source
+    document.getElementById('thumbnailImage').src = imageUrl;
+    
+    // Set download and view full links
+    document.getElementById('thumbnailDownload').href = imageUrl;
+    document.getElementById('thumbnailViewFull').href = imageUrl;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('thumbnailModal'));
+    modal.show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add lightbox functionality for images if needed
+    const images = document.querySelectorAll('.card-img-top:not(.bg-secondary):not(.bg-danger):not(.bg-info)');
+    images.forEach(img => {
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', function() {
+            window.open(this.src, '_blank');
+        });
+    });
+});
+
+// Download all images functionality
+function downloadAllImages(caseId) {
+    // Show progress or loading state
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Preparing download...';
+    
+    // Get CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Submit download request
+    fetch(`/cases/case/${caseId}/download-images/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Download failed');
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `case_${caseId}_all_images.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        
+        // Reset button
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    })
+    .catch(error => {
+        alert('Error downloading images: ' + error);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+</script>
+{% endblock %}

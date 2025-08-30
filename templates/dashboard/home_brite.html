@@ -4,21 +4,19 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-12">
+    <div class="col-6">
         <h1 class="page-title">
             <i class="bi bi-speedometer2"></i> Dashboard
         </h1>
-        <p class="lead text-muted">Welcome back, {{ user.get_full_name|default:user.username }}!</p>
+    </div>
+    <div class="col-6 text-start">
+        {% if is_hq %}
+        <div class="alert alert-info border-2 border-dark mb-3">
+            <i class="bi bi-building"></i> <strong>Headquarter</strong> - Showing aggregated data from all {{ total_organizations }} organizations
+        </div>
+        {% endif %}
     </div>
 </div>
-
-<!-- HQ Indicator -->
-{% if is_hq %}
-<div class="alert alert-info border-2 border-dark mb-3">
-    <i class="bi bi-building"></i> <strong>Headquarters Dashboard</strong> - Showing aggregated data from all {{ total_organizations }} organizations
-</div>
-{% endif %}
-
 <!-- Statistics Cards -->
 <div class="row g-4 mb-4">
     <div class="col-xl-3 col-lg-6">
@@ -34,7 +32,6 @@
             </div>
         </div>
     </div>
-    
     <div class="col-xl-3 col-lg-6">
         <div class="stat-card hover-lift">
             <div class="d-flex align-items-center">
@@ -48,7 +45,6 @@
             </div>
         </div>
     </div>
-    
     <div class="col-xl-3 col-lg-6">
         <div class="stat-card hover-lift">
             <div class="d-flex align-items-center">
@@ -62,7 +58,6 @@
             </div>
         </div>
     </div>
-    
     <div class="col-xl-3 col-lg-6">
         <div class="stat-card hover-lift">
             <div class="d-flex align-items-center">
@@ -92,7 +87,7 @@
 
 <div class="row g-4">
     <!-- Recent Cases -->
-    <div class="col-lg-8">
+    <div class="col-lg-9">
         <div class="card border-2">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-primary">
@@ -105,52 +100,55 @@
             <div class="card-body">
                 {% if recent_cases %}
                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+                    <table class="table table-hover table-bordered border-2 border-dark">
+                        <thead class="bg-light">
                             <tr>
-                                <th>Case #</th>
-                                <th>Patient</th>
-                                <th>Status</th>
-                                <th>Priority</th>
-                                <th>Updated</th>
-                                <th>Action</th>
+                                <th class="border-2 border-dark">Patient</th>
+                                <th class="border-2 border-dark">Chief Complaint</th>
+                                <th class="border-2 border-dark">Status</th>
+                                <th class="border-2 border-dark">Priority</th>
+                                <th class="border-2 border-dark">Created</th>
+                                <th class="border-2 border-dark">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for case in recent_cases %}
-                            <tr>
-                                <td>
-                                    <span class="case-number">#{{ case.case_number }}</span>
-                                </td>
-                                <td>
+                            <tr class="{% if case.status == 'DRAFT' %}bg-light border-start border-warning border-3{% endif %}">
+                                
+                                <td class="border-2 border-dark">
                                     <div class="d-flex align-items-center">
                                         <div class="patient-avatar me-2">
                                             {{ case.patient.first_name.0 }}{{ case.patient.last_name.0 }}
                                         </div>
                                         <div>
-                                            <div class="fw-semibold">{{ case.patient.full_name }}</div>
-                                            <small class="text-muted">MRN: {{ case.patient.mrn }}</small>
+                                            <a href="{% url 'cases:patient_detail' case.patient.pk %}" class="text-decoration-none fw-semibold">
+                                                {{ case.patient.full_name }}
+                                            </a>
+                                            <small class="d-block text-muted">Chart #: {{ case.patient.mrn }}</small>
                                         </div>
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="badge badge-{{ case.status|lower }} border">
+                                <td class="border-2 border-dark">{{ case.chief_complaint|striptags|truncatechars:50 }}</td>
+                                <td class="border-2 border-dark">
+                                    <span class="badge badge-{{ case.status|lower }} border-2 border-dark">
                                         {{ case.get_status_display }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="border-2 border-dark">
                                     <span class="priority-{{ case.priority|lower }}">
                                         <i class="bi bi-flag-fill"></i> {{ case.get_priority_display }}
                                     </span>
                                 </td>
-                                <td>
-                                    <small class="text-muted">{{ case.updated_at|timesince }} ago</small>
+                                <td class="border-2 border-dark">
+                                    <small>{{ case.created_at|date:"M d, Y" }}</small>
                                 </td>
-                                <td>
-                                    <a href="{% url 'cases:case_detail' case.pk %}" 
-                                       class="btn btn-sm btn-primary border-2">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
+                                <td class="border-2 border-dark">
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'cases:case_detail' case.pk %}" 
+                                           class="btn btn-sm btn-primary border-2" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -169,9 +167,8 @@
             </div>
         </div>
     </div>
-    
     <!-- Quick Actions & Activity -->
-    <div class="col-lg-4">
+    <div class="col-lg-3">
         <!-- Quick Actions -->
         <div class="card border-2 mb-4">
             <div class="card-header">
@@ -190,50 +187,12 @@
                     <a href="{% url 'cases:case_list' %}?status=review" class="btn btn-warning border-2 text-start">
                         <i class="bi bi-clipboard-check me-2"></i> Review Cases
                     </a>
-                    <a href="{% url 'blog:post_create' %}" class="btn btn-info border-2 text-start">
-                        <i class="bi bi-pencil-square me-2"></i> Write Blog Post
-                    </a>
+                    
                 </div>
             </div>
-        </div>
-        
-        <!-- Recent Activity -->
-        <div class="card border-2">
-            <div class="card-header">
-                <h5 class="mb-0 text-primary">
-                    <i class="bi bi-activity"></i> Recent Activity
-                </h5>
-            </div>
-            <div class="card-body">
-                {% if recent_activities %}
-                <div class="timeline">
-                    {% for activity in recent_activities %}
-                    <div class="d-flex mb-3">
-                        <div class="flex-shrink-0">
-                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
-                                <i class="bi bi-circle-fill text-primary" style="font-size: 0.5rem;"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <p class="mb-1">{{ activity.description }}</p>
-                            <small class="text-muted">
-                                {{ activity.created_at|timesince }} ago
-                            </small>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-center py-4">
-                    <i class="bi bi-clock-history text-muted" style="font-size: 2rem;"></i>
-                    <p class="mt-2 text-muted">No recent activity</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+        </div>        
     </div>
 </div>
-
 <!-- Chart Section -->
 <div class="row g-4 mt-2">
     <div class="col-lg-6">
@@ -338,6 +297,63 @@
     font-size: 1.2rem;
     border: 2px solid #000;
 }
+
+.case-number {
+    color: #212529 !important;  /* Dark gray/black for better visibility */
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.case-number:hover {
+    text-decoration: underline !important;  /* Underline on hover */
+}
+
+/* Patient avatar */
+.patient-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: var(--bs-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 2px solid var(--bs-dark);
+    flex-shrink: 0;
+}
+
+/* Status badge colors */
+.badge-draft { 
+    background-color: #ffc107 !important; 
+    color: #000 !important;
+}
+.badge-active { 
+    background-color: #28a745 !important; 
+    color: white !important;
+}
+.badge-in_review { 
+    background-color: #17a2b8 !important; 
+    color: white !important;
+}
+.badge-completed { 
+    background-color: #6c757d !important; 
+    color: white !important;
+}
+.badge-archived { 
+    background-color: #343a40 !important; 
+    color: white !important;
+}
+
+/* Priority colors */
+.priority-low { color: #6c757d; }
+.priority-medium { color: #007bff; }
+.priority-high { color: #ff6b6b; }
+.priority-urgent { 
+    color: #dc3545;
+    font-weight: bold;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -346,10 +362,10 @@ const statusCtx = document.getElementById('statusChart').getContext('2d');
 new Chart(statusCtx, {
     type: 'doughnut',
     data: {
-        labels: ['Open', 'In Progress', 'Review', 'Completed'],
+        labels: ['Draft', 'Active', 'In Review', 'Completed', 'Cancelled'],
         datasets: [{
-            data: [{{ open_cases|default:0 }}, {{ in_progress_cases|default:0 }}, {{ review_cases|default:0 }}, {{ completed_cases|default:0 }}],
-            backgroundColor: ['#22d2ed', '#ffc700', '#be82fa', '#68d391'],
+            data: [{{ draft_cases|default:0 }}, {{ open_cases|default:0 }}, {{ in_review_cases|default:0 }}, {{ completed_cases|default:0 }}, {{ cancelled_cases|default:0 }}],
+            backgroundColor: ['#ffc107', '#22d2ed', '#be82fa', '#68d391', '#6c757d'],
             borderColor: '#000',
             borderWidth: 2
         }]
@@ -370,10 +386,10 @@ const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
 new Chart(monthlyCtx, {
     type: 'bar',
     data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        labels: {{ monthly_labels|safe }},
         datasets: [{
             label: 'Cases',
-            data: [12, 19, 15, 25, 22, 30],
+            data: {{ monthly_data|safe }},
             backgroundColor: '#a2e436',
             borderColor: '#000',
             borderWidth: 2
@@ -399,6 +415,43 @@ new Chart(monthlyCtx, {
         }
     }
 });
+
+// Delete confirmation function
+function confirmDelete(caseId) {
+    const deleteForm = document.getElementById('deleteForm');
+    deleteForm.action = `/cases/case/${caseId}/delete/`;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
 </script>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-2 border-dark">
+            <div class="modal-header border-2 border-dark">
+                <h5 class="modal-title text-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Confirm Delete
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this case?</p>
+                <div class="alert alert-warning border-2 border-dark">
+                    <i class="bi bi-exclamation-circle"></i> This action cannot be undone!
+                </div>
+            </div>
+            <div class="modal-footer border-2 border-dark">
+                <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger border-2 border-dark">
+                        <i class="bi bi-trash"></i> Delete Case
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

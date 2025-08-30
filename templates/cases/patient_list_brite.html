@@ -97,12 +97,12 @@
                             </div>
                             <div class="btn-group" role="group">
                                 <a href="{% url 'cases:patient_detail' patient.pk %}" 
-                                   class="btn btn-sm btn-outline-primary border-2" title="View">
+                                   class="btn btn-sm btn-primary border-2" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 {% if user.profile.is_admin or user.is_staff %}
                                 <a href="{% url 'cases:patient_update' patient.pk %}" 
-                                   class="btn btn-sm btn-outline-secondary border-2" title="Edit">
+                                   class="btn btn-sm btn-secondary border-2" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 {% endif %}

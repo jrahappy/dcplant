@@ -3,21 +3,33 @@
 
 {% block title %}Case {{ case.case_number }} - DCPlant{% endblock %}
 
+{% block extra_css %}
+<!-- jQuery (required for Summernote) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Summernote CSS -->
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="page-title">
                 <i class="bi bi-folder-check"></i> Case {{ case.case_number }}
+                {% if case.status == "DRAFT" %}
+                    <span class="badge bg-warning text-dark ms-2">DRAFT</span>
+                {% endif %}
             </h1>
             <div>
-                {% if user == case.created_by or user.profile.is_admin or user.is_staff %}
-                <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-primary border-2 border-dark">
-                    <i class="bi bi-pencil"></i> Edit
-                </a>
-                {% endif %}
-                <button class="btn btn-outline-secondary border-2 border-dark" onclick="window.print()">
+                <!-- <button type="button" class="btn btn-danger border-2 border-dark" data-bs-toggle="modal" data-bs-target="#deleteCaseModal">
+                    <i class="bi bi-trash"></i> Delete
+                </button> -->
+                
+                <!-- <button class="btn btn-secondary border-2 border-dark" onclick="window.print()">
                     <i class="bi bi-printer"></i> Print
+                </button> -->
+                <button class="btn btn-secondary border-2 border-dark" onclick="window.location.href='{% url 'cases:case_list' %}'">
+                    <i class="bi bi-arrow-left"></i> Back to Cases
                 </button>
             </div>
         </div>
@@ -25,7 +37,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-lg-9">
         <!-- Status and Priority Banner -->
         <div class="card border-2 mb-4">
             <div class="card-body">
@@ -36,9 +48,24 @@
                             <span class="badge badge-{{ case.status|lower }} fs-6 border-2 border-dark">
                                 {{ case.get_status_display }}
                             </span>
+                            <!-- {% if case.status == "DRAFT" and user == case.created_by %}
+                            <form method="post" action="{% url 'cases:case_publish' case.pk %}" style="display: inline;" class="ms-2">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-success border-2 border-dark">
+                                    <i class="bi bi-send"></i> Publish
+                                </button>
+                            </form>
+                            {% elif case.status != "DRAFT" and user == case.created_by %}
+                            <form method="post" action="{% url 'cases:case_to_draft' case.pk %}" style="display: inline;" class="ms-2">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-warning border-2 border-dark">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Draft
+                                </button>
+                            </form>
+                            {% endif %} -->
                             {% if user == case.created_by or user == case.assigned_to or user.profile.is_admin %}
-                            <button class="btn btn-sm btn-link text-primary" onclick="showStatusModal()">
-                                <i class="bi bi-pencil-square"></i>
+                            <button class="btn btn-sm text-primary ms-2" onclick="showStatusModal()">
+                                <i class="bi bi-pencil-square"></i> Change Status
                             </button>
                             {% endif %}
                         </div>
@@ -92,7 +119,7 @@
                             <div class="col-md-6">
                                 <p class="mb-2">
                                     <i class="bi bi-upc text-primary"></i>
-                                    <strong>MRN:</strong> {{ case.patient.mrn }}
+                                    <strong>Chart #:</strong> {{ case.patient.mrn }}
                                 </p>
                                 <p class="mb-2">
                                     <i class="bi bi-gender-ambiguous text-primary"></i>
@@ -133,10 +160,10 @@
             <div class="card-body">
                 <div class="clinical-section mb-4">
                     <h6 class="text-primary mb-2">
-                        <i class="bi bi-chat-left-quote"></i> Chief Complaint
+                        <i class="bi bi-chat-left-quote"></i> Clinical Note
                     </h6>
                     <div class="bg-light border-2 border rounded p-3">
-                        {{ case.chief_complaint|linebreaks }}
+                        {{ case.chief_complaint|safe }}
                     </div>
                 </div>
                 
@@ -146,7 +173,7 @@
                         <i class="bi bi-search"></i> Clinical Findings
                     </h6>
                     <div class="bg-light border-2 border rounded p-3">
-                        {{ case.clinical_findings|linebreaks }}
+                        {{ case.clinical_findings|safe }}
                     </div>
                 </div>
                 {% endif %}
@@ -157,7 +184,7 @@
                         <i class="bi bi-file-medical"></i> Diagnosis
                     </h6>
                     <div class="bg-light border-2 border rounded p-3">
-                        {{ case.diagnosis|linebreaks }}
+                        {{ case.diagnosis|safe }}
                     </div>
                 </div>
                 {% endif %}
@@ -168,7 +195,7 @@
                         <i class="bi bi-prescription2"></i> Treatment Plan
                     </h6>
                     <div class="bg-light border-2 border rounded p-3">
-                        {{ case.treatment_plan|linebreaks }}
+                        {{ case.treatment_plan|safe }}
                     </div>
                 </div>
                 {% endif %}
@@ -179,9 +206,92 @@
                         <i class="bi bi-graph-up-arrow"></i> Prognosis
                     </h6>
                     <div class="bg-light border-2 border rounded p-3">
-                        {{ case.prognosis|linebreaks }}
+                        {{ case.prognosis|safe }}
                     </div>
                 </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Clinical Opinions Section -->
+        <div class="card border-2 mb-4">
+            <div class="card-header bg-info bg-opacity-10 border-2 border-dark">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-info">
+                        <i class="bi bi-chat-left-text"></i> Clinical Opinions
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-info border-2 border-dark" data-bs-toggle="modal" data-bs-target="#addOpinionModal">
+                        <i class="bi bi-plus-circle"></i> New Opinion
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if opinions %}
+                    <div class="opinions-list">
+                        {% for opinion in opinions %}
+                        <div class="opinion-item mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %} {% if opinion.status == 'DRAFT' %}bg-light border-start border-warning border-3 ps-3{% endif %}">
+                            <div class="d-flex align-items-start">
+                                <div class="avatar-circle me-3">
+                                    {{ opinion.author.first_name.0|default:opinion.author.username.0 }}{{ opinion.author.last_name.0|default:"" }}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-0">{{ opinion.author.get_full_name|default:opinion.author.username }}</h6>
+                                            <small class="text-muted">
+                                                <i class="bi bi-clock"></i> {{ opinion.created_at|date:"M d, Y g:i A" }}
+                                                {% if opinion.status == "DRAFT" %}
+                                                    <span class="badge bg-warning text-dark ms-2">Draft</span>
+                                                    {% if user == opinion.author %}
+                                                    <form method="post" action="{% url 'cases:publish_opinion' opinion.pk %}" style="display: inline;" class="ms-2">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-success border-2 border-dark">
+                                                            <i class="bi bi-send"></i> Publish
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        {% if user == opinion.author or user.is_staff and opinion.status == "PUBLISHED" %}
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-light border-0" type="button" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="editOpinion({{ opinion.id }}, '{{ opinion.content|escapejs }}', '{{ opinion.status }}')">
+                                                        <i class="bi bi-pencil"></i> Edit
+                                                    </a>
+                                                </li>
+                                                {% if user == opinion.author %}
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <a class="dropdown-item text-danger" href="#" onclick="deleteOpinion({{ opinion.id }}, '{{ opinion.author.get_full_name|default:opinion.author.username|escapejs }}', '{{ opinion.created_at|date:"M d, Y g:i A"|escapejs }}')">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="opinion-content">
+                                        {{ opinion.content|safe }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No clinical opinions yet</p>
+                        <button type="button" class="btn btn-sm btn-info border-2 border-dark" data-bs-toggle="modal" data-bs-target="#addOpinionModal">
+                            <i class="bi bi-plus-circle"></i> Add First Opinion
+                        </button>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -194,11 +304,11 @@
                         <i class="bi bi-images"></i> Images & DICOM Files
                     </h5>
                     <div>
-                        {% if images.count > 0 %}
-                        <a href="{% url 'cases:image_list' case.pk %}" class="btn btn-sm btn-outline-success border-2 border-dark">
+                        <!-- {% if images.count > 0 %}
+                        <a href="{% url 'cases:image_list' case.pk %}" class="btn btn-sm btn-success border-2 border-dark">
                             <i class="bi bi-eye"></i> View All ({{ images.count }})
                         </a>
-                        {% endif %}
+                        {% endif %} -->
                         <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-sm btn-success border-2 border-dark">
                             <i class="bi bi-upload"></i> Upload
                         </a>
@@ -206,14 +316,15 @@
                 </div>
             </div>
             <div class="card-body">
-                {% if images %}
-                <div class="row align-items-center">
+                <!-- {% if images %}
+                <!-- File Statistics -->
+                <!-- <div class="row align-items-center mb-3">
                     <div class="col-md-6">
                         <div class="d-flex align-items-center">
                             <i class="bi bi-images text-success" style="font-size: 3rem;"></i>
                             <div class="ms-3">
                                 <h4 class="mb-0">{{ images.count }}</h4>
-                                <p class="text-muted mb-0">Total Image{{ images.count|pluralize }}</p>
+                                <p class="text-muted mb-0">Total File{{ images.count|pluralize }}</p>
                             </div>
                         </div>
                     </div>
@@ -225,23 +336,194 @@
                         </div>
                         {% endif %}
                     </div>
+                </div> -->
+                
+                <!-- File Preview - Each CaseImage as separate card -->
+                {% if images.count > 0 %}
+                <div class="row g-3 mb-3">
+                    {% for image in images|slice:":12" %}
+                    <div class="col-12 col-md-6 col-lg-6">
+                        <!-- Individual CaseImage Card -->
+                        <div class="card border-2 border-dark h-100">
+                            <!-- CaseImage Metadata Header -->
+                            <div class="card-header bg-primary text-dark border-bottom-2 border-dark">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0 fw-bold">{{ image.title }}</h6>
+                                        <small class="text-muted">
+                                            <i class="bi bi-folder2"></i> Group #{{ image.id }}
+                                        </small>
+                                    </div>
+                                    <div class="d-flex flex-column align-items-end gap-1">
+                                        <span class="badge bg-dark text-white">
+                                            {{ image.get_image_type_display }}
+                                        </span>
+                                        {% if image.is_primary %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-star-fill"></i> Primary
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- CaseImage Metadata Body -->
+                            <div class="card-body p-2">
+                                <!-- CaseImage Information -->
+                                <div class="bg-light rounded p-2 mb-2">
+                                    <small class="text-muted d-block">
+                                        <i class="bi bi-person-circle"></i> Uploaded by: {{ image.uploaded_by.get_full_name|default:image.uploaded_by.username }}
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        <i class="bi bi-calendar-event"></i> Created: {{ image.created_at|date:"M d, Y g:i A" }}
+                                    </small>
+                                    {% if image.taken_date %}
+                                    <small class="text-muted d-block">
+                                        <i class="bi bi-camera"></i> Taken: {{ image.taken_date|date:"M d, Y" }}
+                                    </small>
+                                    {% endif %}
+                                    {% if image.description %}
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="bi bi-info-circle"></i> {{ image.description|truncatechars:80 }}
+                                    </small>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- CaseImageItems Section -->
+                                {% if image.items.exists %}
+                                <div class="border-top pt-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="fw-bold text-secondary">
+                                            <i class="bi bi-files"></i> Files ({{ image.item_count }})
+                                        </small>
+                                    </div>
+                                    
+                                    <!-- Display Items -->
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for item in image.items.all|slice:":4" %}
+                                        <div class="position-relative" style="width: 60px; height: 60px;">
+                                            <div class="border rounded overflow-hidden h-100" 
+                                                 title="{{ item.filename }}"
+                                                 style="cursor: pointer;">
+                                                {% if item.is_dicom %}
+                                                <div class="d-flex align-items-center justify-content-center h-100 bg-dark text-white">
+                                                    <div class="text-center">
+                                                        <i class="bi bi-file-medical" style="font-size: 1.2rem;"></i>
+                                                        <div style="font-size: 0.6rem;">DICOM</div>
+                                                    </div>
+                                                </div>
+                                                {% elif '.zip' in item.filename|lower or '.pdf' in item.filename|lower %}
+                                                <div class="d-flex align-items-center justify-content-center h-100 bg-light">
+                                                    <div class="text-center">
+                                                        {% if '.zip' in item.filename|lower %}
+                                                        <i class="bi bi-file-earmark-zip text-warning" style="font-size: 1.2rem;"></i>
+                                                        <div style="font-size: 0.6rem;">ZIP</div>
+                                                        {% else %}
+                                                        <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 1.2rem;"></i>
+                                                        <div style="font-size: 0.6rem;">PDF</div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                {% else %}
+                                                <img src="{{ item.image.url }}" 
+                                                     class="img-fluid w-100 h-100" 
+                                                     style="object-fit: cover;"
+                                                     alt="Item {{ forloop.counter }}"
+                                                     onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'d-flex align-items-center justify-content-center h-100 bg-light\'><i class=\'bi bi-file-earmark text-muted\' style=\'font-size: 1.2rem;\'></i></div>';">
+                                                {% endif %}
+                                            </div>
+                                            <span class="position-absolute top-0 start-0 badge bg-dark" 
+                                                  style="font-size: 0.6rem; padding: 1px 3px;">
+                                                #{{ forloop.counter }}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+                                        
+                                        {% if image.item_count > 4 %}
+                                        <div class="d-flex align-items-center justify-content-center border rounded bg-secondary text-white" 
+                                             style="width: 60px; height: 60px;">
+                                            <div class="text-center">
+                                                <div style="font-size: 0.9rem; font-weight: bold;">+{{ image.item_count|add:"-4" }}</div>
+                                                <div style="font-size: 0.6rem;">more</div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="text-center text-muted py-2">
+                                    <i class="bi bi-inbox"></i> No files in this group
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- CaseImage Actions Footer -->
+                            <div class="card-footer bg-light py-1 border-top-2 border-dark">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted" style="font-size: 0.7rem;">
+                                        <i class="bi bi-clock"></i> {{ image.created_at|timesince }} ago
+                                    </small>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'cases:image_detail' image.pk %}" 
+                                           class="btn btn-sm btn-primary py-0" style="font-size: 0.75rem;">
+                                            <i class="bi bi-eye"></i> Details
+                                        </a>
+                                        {% if image.items.exists and image.first_item %}
+                                        <a href="{{ image.first_item.image.url }}" download
+                                           class="btn btn-sm btn-success py-0" style="font-size: 0.75rem;">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if image.image_type == "DICOM" and image.item_count > 10 %}
+                                        <a href="{% url 'cases:dicom_series_viewer' case.pk %}" 
+                                           class="btn btn-sm btn-info py-0" style="font-size: 0.75rem;">
+                                            <i class="bi bi-layers"></i> Viewer
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if images.count > 12 %}
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="card border-2 border-dark h-100" style="background-color: rgba(162, 228, 54, 0.1);">
+                            <a href="{% url 'cases:image_list' case.pk %}" 
+                               class="card-body d-flex align-items-center justify-content-center text-decoration-none"
+                               style="min-height: 150px;">
+                                <div class="text-center">
+                                    <i class="bi bi-plus-circle text-primary" style="font-size: 3rem;"></i>
+                                    <h5 class="text-dark fw-bold mt-2">View All {{ images.count }} CaseImages</h5>
+                                    <p class="text-muted mb-0">{{ images.count|add:"-12" }} more CaseImage records</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 
-                {% if dicom_count > 10 %}
-                <div class="mt-3 d-grid gap-2 d-md-flex">
-                    <a href="{% url 'cases:dicom_series_viewer' case.pk %}" class="btn btn-outline-info border-2 border-dark">
-                        <i class="bi bi-layers"></i> Open DICOM Viewer
-                    </a>
-                    <button class="btn btn-outline-success border-2 border-dark" onclick="downloadAllImages({{ case.pk }})">
-                        <i class="bi bi-download"></i> Download All Images
-                    </button>
-                    {% if user == case.created_by or user.profile.is_admin or user.is_staff %}
-                    <button class="btn btn-outline-danger border-2 border-dark" onclick="confirmDeleteDicomSeries()">
-                        <i class="bi bi-trash"></i> Delete DICOM Series
-                    </button>
+                <!-- File Type Breakdown -->
+                <div class="d-flex flex-wrap gap-2 mt-2 mb-3">
+                    {% if regular_images_count > 0 %}
+                    <span class="badge bg-primary text-dark border-1 border-dark">
+                        <i class="bi bi-image"></i> {{ regular_images_count }} Image Group{{ regular_images_count|pluralize }}
+                    </span>
+                    {% endif %}
+                    {% if dicom_count > 0 %}
+                    <span class="badge bg-info text-dark border-1 border-dark">
+                        <i class="bi bi-file-medical"></i> {{ dicom_count }} DICOM Group{{ dicom_count|pluralize }}
+                    </span>
+                    {% endif %}
+                    {% if pdf_count > 0 %}
+                    <span class="badge bg-danger text-white border-1 border-dark">
+                        <i class="bi bi-file-earmark-pdf"></i> {{ pdf_count }} PDF Group{{ pdf_count|pluralize }}
+                    </span>
                     {% endif %}
                 </div>
                 {% endif %}
+                
                 {% else %}
                 <div class="text-center py-4">
                     <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
@@ -254,7 +536,8 @@
             </div>
         </div>
         
-        <!-- Comments Section -->
+        <!-- Comments Section (Currently disabled) -->
+        <!-- 
         <div class="card border-2">
             <div class="card-header bg-warning bg-opacity-10 border-2 border-dark">
                 <h5 class="mb-0 text-warning">
@@ -262,7 +545,6 @@
                 </h5>
             </div>
             <div class="card-body">
-                <!-- Add Comment Form -->
                 <form method="post" action="{% url 'cases:comment_add' case.pk %}" class="mb-4">
                     {% csrf_token %}
                     <div class="mb-3">
@@ -281,7 +563,7 @@
                     </div>
                 </form>
                 
-                <!-- Comments List -->
+                
                 <div class="comments-list">
                     {% for comment in comments %}
                     <div class="card border-2 mb-3">
@@ -335,10 +617,11 @@
                 </div>
             </div>
         </div>
+        -->
     </div>
     
     <!-- Right Sidebar -->
-    <div class="col-lg-4">
+    <div class="col-lg-3">
         <!-- Quick Actions -->
         <div class="card border-2 mb-4">
             <div class="card-header bg-primary text-dark border-2 border-dark">
@@ -351,37 +634,30 @@
                     <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary border-2 border-dark">
                         <i class="bi bi-upload"></i> Upload Images
                     </a>
-                    {% if dicom_count > 10 %}
-                    <a href="{% url 'cases:dicom_series_viewer' case.pk %}" class="btn btn-outline-info border-2 border-dark">
-                        <i class="bi bi-layers"></i> DICOM Viewer
-                    </a>
-                    {% endif %}
-                    {% if images.count > 0 %}
-                    <button class="btn btn-outline-success border-2 border-dark" onclick="downloadAllImages({{ case.pk }})">
-                        <i class="bi bi-download"></i> Download All
-                    </button>
-                    {% endif %}
                     {% if user == case.created_by or user.profile.is_admin %}
                     {% if case.is_shared %}
                     <form method="post" action="{% url 'cases:case_share' case.pk %}" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" name="cancel_sharing" value="1" 
-                                class="btn btn-outline-danger border-2 border-dark"
+                                class="btn btn-danger border-2 border-dark"
                                 onclick="return confirm('Cancel sharing for this case?')">
                             <i class="bi bi-x-circle"></i> Cancel Sharing
                         </button>
                     </form>
-                    <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-outline-info border-2 border-dark">
+                    <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
                         <i class="bi bi-share-fill"></i> Manage Sharing
                     </a>
                     {% else %}
-                    <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-outline-info border-2 border-dark">
+                    <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
                         <i class="bi bi-share"></i> Share Case
                     </a>
                     {% endif %}
-                    <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-outline-warning border-2 border-dark">
+                    <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-warning border-2 border-dark">
                         <i class="bi bi-pencil-square"></i> Edit Case
                     </a>
+                    <button type="button" class="btn btn-danger border-2 border-dark" data-bs-toggle="modal" data-bs-target="#deleteCaseModal">
+                        <i class="bi bi-trash"></i> Delete Case
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -442,35 +718,42 @@
             </div>
         </div>
         
-        <!-- Activity Log -->
-        <div class="card border-2">
-            <div class="card-header bg-light border-2 border-dark">
-                <h5 class="mb-0">
-                    <i class="bi bi-clock-history"></i> Activity Log
-                </h5>
-            </div>
-            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                <div class="timeline">
-                    {% for activity in activities %}
-                    <div class="timeline-item mb-3 pb-3 border-bottom">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <i class="bi bi-circle-fill text-primary" style="font-size: 0.5rem;"></i>
-                                <strong class="ms-2">
-                                    {% if activity.user %}
-                                        {{ activity.user.get_full_name|default:activity.user.username }}
-                                    {% else %}
-                                        System
-                                    {% endif %}
-                                </strong>
+        <!-- Activity Log Accordion -->
+        <div class="accordion" id="activityLogAccordion">
+            <div class="accordion-item border-2">
+                <h2 class="accordion-header" id="activityLogHeading">
+                    <button class="accordion-button collapsed bg-light border-2 border-dark" type="button" data-bs-toggle="collapse" data-bs-target="#activityLogCollapse" aria-expanded="false" aria-controls="activityLogCollapse">
+                        <h5 class="mb-0">
+                            <i class="bi bi-clock-history"></i> Activity Log
+                            <span class="badge bg-secondary ms-2">{{ activities.count }}</span>
+                        </h5>
+                    </button>
+                </h2>
+                <div id="activityLogCollapse" class="accordion-collapse collapse" aria-labelledby="activityLogHeading" data-bs-parent="#activityLogAccordion">
+                    <div class="accordion-body" style="max-height: 400px; overflow-y: auto;">
+                        <div class="timeline">
+                            {% for activity in activities %}
+                            <div class="timeline-item mb-3 pb-3 border-bottom">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <i class="bi bi-circle-fill text-primary" style="font-size: 0.5rem;"></i>
+                                        <strong class="ms-2">
+                                            {% if activity.user %}
+                                                {{ activity.user.get_full_name|default:activity.user.username }}
+                                            {% else %}
+                                                System
+                                            {% endif %}
+                                        </strong>
+                                    </div>
+                                    <small class="text-muted">{{ activity.created_at|timesince }} ago</small>
+                                </div>
+                                <p class="mb-0 ms-3 small text-muted">{{ activity.description }}</p>
                             </div>
-                            <small class="text-muted">{{ activity.created_at|timesince }} ago</small>
+                            {% empty %}
+                            <p class="text-muted text-center">No activities recorded.</p>
+                            {% endfor %}
                         </div>
-                        <p class="mb-0 ms-3 small text-muted">{{ activity.description }}</p>
                     </div>
-                    {% empty %}
-                    <p class="text-muted text-center">No activities recorded.</p>
-                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -490,15 +773,14 @@
             <div class="modal-body">
                 <select id="newStatus" class="form-select border-2 border-dark">
                     <option value="DRAFT" {% if case.status == 'DRAFT' %}selected{% endif %}>Draft</option>
-                    <option value="OPEN" {% if case.status == 'OPEN' %}selected{% endif %}>Open</option>
-                    <option value="IN_PROGRESS" {% if case.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
-                    <option value="REVIEW" {% if case.status == 'REVIEW' %}selected{% endif %}>Review</option>
+                    <option value="ACTIVE" {% if case.status == 'ACTIVE' %}selected{% endif %}>Active</option>
+                    <option value="IN_REVIEW" {% if case.status == 'IN_REVIEW' %}selected{% endif %}>In Review</option>
                     <option value="COMPLETED" {% if case.status == 'COMPLETED' %}selected{% endif %}>Completed</option>
-                    <option value="CANCELLED" {% if case.status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+                    <option value="ARCHIVED" {% if case.status == 'ARCHIVED' %}selected{% endif %}>Archived</option>
                 </select>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary border-2 border-dark" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary border-2 border-dark" onclick="updateStatus()">Update</button>
             </div>
         </div>
@@ -534,6 +816,22 @@
 </div>
 
 <style>
+/* Avatar circle */
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: var(--bs-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    border: 2px solid var(--bs-dark);
+    flex-shrink: 0;
+}
+
 /* Status badge colors */
 .badge-draft { 
     background-color: #6c757d !important; 
@@ -607,9 +905,116 @@
 .text-purple {
     color: #6f42c1 !important;
 }
+
+/* CaseImage card styling */
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.image-preview {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.image-preview img {
+    transition: opacity 0.2s ease;
+}
+
+.image-preview:hover img {
+    opacity: 0.9;
+}
+
+/* Ensure consistent card heights */
+.card-body {
+    min-height: 120px;
+}
+
+/* ID highlighting */
+.card-header small {
+    letter-spacing: 0.5px;
+}
 </style>
 
 <script>
+function deleteOpinion(opinionId, author, date) {
+    // Set the form action
+    document.getElementById('deleteOpinionForm').action = `/cases/opinion/${opinionId}/delete/`;
+    
+    // Update the modal content
+    document.getElementById('deleteOpinionAuthor').textContent = author;
+    document.getElementById('deleteOpinionDate').textContent = date;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('deleteOpinionModal'));
+    modal.show();
+}
+
+function toggleModalFullscreen(modalId) {
+    const modalDialog = document.querySelector(`#${modalId} .modal-dialog`);
+    const iconElement = document.getElementById(`${modalId}FullscreenIcon`);
+    
+    if (modalDialog.classList.contains('modal-fullscreen')) {
+        // Exit fullscreen
+        modalDialog.classList.remove('modal-fullscreen');
+        modalDialog.classList.add('modal-xl', 'modal-dialog-centered');
+        iconElement.classList.remove('bi-fullscreen-exit');
+        iconElement.classList.add('bi-arrows-fullscreen');
+        
+        // Reset height to normal
+        if (modalId === 'addOpinionModal') {
+            $('#opinionContent').summernote('option', 'height', 400);
+        } else if (modalId === 'editOpinionModal') {
+            $('#editOpinionContent').summernote('option', 'height', 400);
+        }
+    } else {
+        // Enter fullscreen
+        modalDialog.classList.remove('modal-xl', 'modal-dialog-centered');
+        modalDialog.classList.add('modal-fullscreen');
+        iconElement.classList.remove('bi-arrows-fullscreen');
+        iconElement.classList.add('bi-fullscreen-exit');
+        
+        // Calculate available height for fullscreen mode
+        // We need to account for:
+        // - Modal header with title and close button (~56px)
+        // - Modal footer with buttons (~71px)
+        // - Status dropdown field and its label (~90px)
+        // - Some padding for breathing room (~20px)
+        // Total offset: approximately 237px
+        
+        // Adjust Summernote height for fullscreen after modal transition
+        setTimeout(() => {
+            // Get the actual modal body element to calculate precise available space
+            const modalBody = document.querySelector(`#${modalId} .modal-body`);
+            const modalHeader = document.querySelector(`#${modalId} .modal-header`);
+            const modalFooter = document.querySelector(`#${modalId} .modal-footer`);
+            
+            // Calculate the height of other elements in modal body (status dropdown)
+            const statusField = modalBody.querySelector('.mb-3'); // The status field container
+            const statusFieldHeight = statusField ? statusField.offsetHeight : 0;
+            
+            // Calculate available height
+            const totalHeight = window.innerHeight;
+            const headerHeight = modalHeader ? modalHeader.offsetHeight : 0;
+            const footerHeight = modalFooter ? modalFooter.offsetHeight : 0;
+            const padding = 40; // Some padding for better appearance
+            
+            const availableHeight = totalHeight - headerHeight - footerHeight - statusFieldHeight - padding;
+            
+            // Set the Summernote editor to use the full available height
+            if (modalId === 'addOpinionModal') {
+                $('#opinionContent').summernote('option', 'height', availableHeight);
+            } else if (modalId === 'editOpinionModal') {
+                $('#editOpinionContent').summernote('option', 'height', availableHeight);
+            }
+        }, 300); // Slightly longer delay to ensure modal is fully rendered
+    }
+}
+
 function showStatusModal() {
     const modal = new bootstrap.Modal(document.getElementById('statusModal'));
     modal.show();
@@ -731,7 +1136,25 @@ function confirmDeleteDicomSeries() {
 }
 
 function deleteDicomSeries() {
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Get CSRF token - try multiple sources
+    let csrfToken = null;
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfInput) {
+        csrfToken = csrfInput.value;
+    } else {
+        // Try to get from cookie as fallback
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='));
+        if (cookieValue) {
+            csrfToken = cookieValue.split('=')[1];
+        }
+    }
+    
+    if (!csrfToken) {
+        alert('Security token not found. Please refresh the page and try again.');
+        return;
+    }
     
     // Show loading state
     const deleteBtn = document.getElementById('confirmDeleteBtn');
@@ -763,6 +1186,9 @@ function deleteDicomSeries() {
 }
 </script>
 
+<!-- Hidden CSRF token for JavaScript operations -->
+{% csrf_token %}
+
 <!-- Delete DICOM Series Modal -->
 <div class="modal fade" id="deleteDicomModal" tabindex="-1">
     <div class="modal-dialog">
@@ -789,7 +1215,7 @@ function deleteDicomSeries() {
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary border-2 border-dark" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">
                     Cancel
                 </button>
                 <button type="button" id="confirmDeleteBtn" class="btn btn-danger border-2 border-dark" onclick="deleteDicomSeries()">
@@ -800,4 +1226,260 @@ function deleteDicomSeries() {
     </div>
 </div>
 
+<!-- Add Opinion Modal -->
+<div class="modal fade" id="addOpinionModal" tabindex="-1" aria-labelledby="addOpinionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-2 border-dark">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="addOpinionModalLabel">
+                    <i class="bi bi-chat-left-text"></i> Add Clinical Opinion
+                </h5>
+                <div>
+                    <button type="button" class="btn btn-sm btn-light me-2" onclick="toggleModalFullscreen('addOpinionModal')" title="Toggle Fullscreen">
+                        <i class="bi bi-arrows-fullscreen" id="addOpinionModalFullscreenIcon"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <form method="post" action="{% url 'cases:add_opinion' case.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="opinionContent" class="form-label">Clinical Opinion</label>
+                        <textarea class="form-control border-2 border-dark" id="opinionContent" name="content" rows="6" placeholder="Enter your clinical opinion..." required></textarea>
+                        <small class="text-muted">Provide your professional assessment, observations, or recommendations for this case.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="opinionStatus" class="form-label">Status</label>
+                        <select class="form-select border-2 border-dark" id="opinionStatus" name="status">
+                            <option value="PUBLISHED" selected>Published</option>
+                            <option value="DRAFT">Draft</option>
+                        </select>
+                        <small class="text-muted">Draft opinions are only visible to you.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-info border-2 border-dark">
+                        <i class="bi bi-send"></i> Submit Opinion
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Opinion Modal -->
+<div class="modal fade" id="editOpinionModal" tabindex="-1" aria-labelledby="editOpinionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-2 border-dark">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="editOpinionModalLabel">
+                    <i class="bi bi-pencil-square"></i> Edit Clinical Opinion
+                </h5>
+                <div>
+                    <button type="button" class="btn btn-sm btn-light me-2" onclick="toggleModalFullscreen('editOpinionModal')" title="Toggle Fullscreen">
+                        <i class="bi bi-arrows-fullscreen" id="editOpinionModalFullscreenIcon"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <form id="editOpinionForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editOpinionContent" class="form-label">Clinical Opinion</label>
+                        <textarea class="form-control border-2 border-dark" id="editOpinionContent" name="content" rows="6" placeholder="Enter your clinical opinion..." required></textarea>
+                        <small class="text-muted">Provide your professional assessment, observations, or recommendations for this case.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editOpinionStatus" class="form-label">Status</label>
+                        <select class="form-select border-2 border-dark" id="editOpinionStatus" name="status">
+                            <option value="PUBLISHED">Published</option>
+                            <option value="DRAFT">Draft</option>
+                        </select>
+                        <small class="text-muted">Draft opinions are only visible to you.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-info border-2 border-dark">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Opinion Confirmation Modal -->
+<div class="modal fade" id="deleteOpinionModal" tabindex="-1" aria-labelledby="deleteOpinionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-2 border-dark">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteOpinionModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Delete Clinical Opinion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning border-2 border-dark">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-exclamation-circle"></i> Warning!
+                    </h6>
+                    <p>You are about to delete this clinical opinion.</p>
+                </div>
+                <p class="fw-bold">Are you absolutely sure?</p>
+                <p>This action will permanently remove this clinical opinion from the case. This cannot be undone!</p>
+                <div class="bg-light p-3 border-2 border-dark rounded">
+                    <p class="mb-1"><strong>Opinion by:</strong> <span id="deleteOpinionAuthor"></span></p>
+                    <p class="mb-0"><strong>Created:</strong> <span id="deleteOpinionDate"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form id="deleteOpinionForm" method="post" action="" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger border-2 border-dark">
+                        <i class="bi bi-trash"></i> Delete Opinion
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Case Confirmation Modal -->
+<div class="modal fade" id="deleteCaseModal" tabindex="-1" aria-labelledby="deleteCaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-2 border-dark">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteCaseModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Delete Case
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning border-2 border-dark">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-exclamation-circle"></i> Warning!
+                    </h6>
+                    <p>You are about to delete this entire case and all associated data.</p>
+                </div>
+                <p class="fw-bold">Are you absolutely sure?</p>
+                <p>This action will permanently delete:</p>
+                <ul>
+                    <li>All case information and clinical data</li>
+                    <li>All associated images and DICOM files</li>
+                    <li>All comments and activity history</li>
+                </ul>
+                <p class="text-danger">This cannot be undone!</p>
+                <div class="bg-light p-3 border-2 border-dark rounded">
+                    <p class="mb-1"><strong>Case Number:</strong> #{{ case.case_number }}</p>
+                    <p class="mb-1"><strong>Patient:</strong> {{ case.patient.full_name }}</p>
+                    <p class="mb-1"><strong>Chief Complaint:</strong> {{ case.chief_complaint|striptags|truncatechars:50 }}</p>
+                    <p class="mb-0"><strong>Created:</strong> {{ case.created_at|date:"M d, Y" }}</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary border-2 border-dark" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form method="post" action="{% url 'cases:case_delete' case.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger border-2 border-dark">
+                        <i class="bi bi-trash"></i> Delete Case
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Summernote JS -->
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize Summernote for Add Opinion textarea
+    $('#opinionContent').summernote({
+        height: 400,
+        toolbar: [
+            ['style', ['style']],
+            ['font', ['bold', 'underline', 'clear']],
+            ['fontname', ['fontname']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['table', ['table']],
+            ['insert', ['link']],
+            ['view', ['fullscreen', 'codeview', 'help']]
+        ],
+        placeholder: 'Enter your clinical opinion...',
+        tabsize: 2,
+        disableDragAndDrop: true
+    });
+
+    // Initialize Summernote for Edit Opinion textarea
+    $('#editOpinionContent').summernote({
+        height: 400,
+        toolbar: [
+            ['style', ['style']],
+            ['font', ['bold', 'underline', 'clear']],
+            ['fontname', ['fontname']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['table', ['table']],
+            ['insert', ['link']],
+            ['view', ['fullscreen', 'codeview', 'help']]
+        ],
+        placeholder: 'Enter your clinical opinion...',
+        tabsize: 2,
+        disableDragAndDrop: true
+    });
+
+    // Handle form submission for Add Opinion
+    $('#addOpinionModal form').on('submit', function(e) {
+        var content = $('#opinionContent').summernote('code');
+        if (!content || content === '<p><br></p>') {
+            e.preventDefault();
+            alert('Please enter your clinical opinion.');
+            return false;
+        }
+    });
+
+    // Handle form submission for Edit Opinion
+    $('#editOpinionForm').on('submit', function(e) {
+        var content = $('#editOpinionContent').summernote('code');
+        if (!content || content === '<p><br></p>') {
+            e.preventDefault();
+            alert('Please enter your clinical opinion.');
+            return false;
+        }
+    });
+});
+
+// Update the editOpinion function to work with Summernote
+function editOpinion(opinionId, content, status) {
+    // Set the form action
+    document.getElementById('editOpinionForm').action = `/cases/opinion/${opinionId}/update/`;
+    
+    // Set the content in Summernote editor
+    $('#editOpinionContent').summernote('code', content);
+    
+    // Set the status
+    document.getElementById('editOpinionStatus').value = status;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('editOpinionModal'));
+    modal.show();
+}
+</script>
 {% endblock %}

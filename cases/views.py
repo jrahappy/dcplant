@@ -7,7 +7,7 @@ from django.http import JsonResponse, HttpResponseForbidden, FileResponse, HttpR
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.conf import settings as django_settings
-from .models import Case, Patient, Category, Comment, CaseImage, CaseActivity
+from .models import Case, Patient, Category, Comment, CaseImage, CaseImageItem, CaseActivity, CaseOpinion
 from .forms import (
     CaseForm,
     PatientForm,
@@ -21,6 +21,7 @@ from .utils import ensure_user_profile
 import os
 import pydicom
 from PIL import Image as PILImage
+import numpy as np
 import io
 import zipfile
 import tempfile
@@ -36,15 +37,26 @@ def case_list(request):
     user_org = profile.organization
 
     # Get cases from user's organization AND shared cases from other organizations
+    # Show draft cases only to their creators
     from django.db.models import Q
-    cases = Case.objects.filter(
-        Q(organization=user_org) | Q(share_with_branches=user_org)
-    ).distinct().select_related(
+    cases_filter = Q(organization=user_org) | Q(share_with_branches=user_org)
+    # Only show draft cases to their creators
+    cases_filter &= ~Q(status="DRAFT") | Q(created_by=request.user)
+    
+    cases = Case.objects.filter(cases_filter).distinct().select_related(
         "patient", "category", "assigned_to", "created_by"
     )
 
-    # Apply filters
-    filter_form = CaseFilterForm(request.GET, user=request.user)
+    # Handle "open" status from sidebar first (shows Active and In Review)
+    if request.GET.get("status") == "open":
+        cases = cases.filter(status__in=["ACTIVE", "IN_REVIEW"])
+        # Remove the status parameter to avoid form validation issues
+        request_get = request.GET.copy()
+        request_get.pop("status", None)
+        filter_form = CaseFilterForm(request_get, user=request.user)
+    else:
+        # Apply filters
+        filter_form = CaseFilterForm(request.GET, user=request.user)
 
     if filter_form.is_valid():
         # Search filter
@@ -59,10 +71,11 @@ def case_list(request):
                 | Q(diagnosis__icontains=search)
             )
 
-        # Status filter
-        status = filter_form.cleaned_data.get("status")
-        if status:
-            cases = cases.filter(status=status)
+        # Status filter (only if not "open")
+        if request.GET.get("status") != "open":
+            status = filter_form.cleaned_data.get("status")
+            if status:
+                cases = cases.filter(status=status)
 
         # Priority filter
         priority = filter_form.cleaned_data.get("priority")
@@ -118,12 +131,21 @@ def case_detail(request, pk):
     user_org = profile.organization
     
     # Allow viewing if case belongs to user's org OR is shared with user's org
+    # Draft cases can only be viewed by their creators
     from django.db.models import Q
-    case = get_object_or_404(
-        Case.objects.filter(
-            Q(pk=pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
-        ).distinct()
-    )
+    case_filter = Q(pk=pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
+    
+    # Try to get the case first to check if it's a draft
+    try:
+        case = Case.objects.get(pk=pk)
+        if case.status == "DRAFT" and case.created_by != request.user:
+            # Draft case can only be viewed by creator
+            raise Case.DoesNotExist
+    except Case.DoesNotExist:
+        # Case doesn't exist or user doesn't have access
+        case = get_object_or_404(
+            Case.objects.filter(case_filter).distinct()
+        )
 
     # Log view activity
     CaseActivity.objects.create(
@@ -154,11 +176,25 @@ def case_detail(request, pk):
     comments = case.comments.filter(comment_filter).select_related("author").prefetch_related(
         "mentions", "replies"
     )
-    images = case.images.select_related("uploaded_by").order_by("-is_primary", "order", "-created_at")
+    images = case.images.select_related("uploaded_by").prefetch_related("items").order_by("-created_at")
     activities = case.activities.select_related("user")[:20]
+    
+    # Get opinions (non-deleted) - show draft opinions only to their authors
+    from django.db.models import Q
+    opinions_filter = Q(is_deleted=False)
+    opinions_filter &= Q(status="PUBLISHED") | Q(author=request.user)
+    opinions = case.opinions.filter(opinions_filter).select_related("author").order_by("-created_at")
 
-    # Count DICOM images for series detection
-    dicom_count = case.images.filter(is_dicom=True).count()
+    # Count files by type across all CaseImage groups
+    from django.db.models import Count
+    dicom_count = CaseImageItem.objects.filter(caseimage__case=case, is_dicom=True).count()
+    
+    # Get file type breakdown
+    regular_images_count = CaseImageItem.objects.filter(
+        caseimage__case=case, 
+        image_type__in=["PHOTO", "XRAY", "PANO", "CBCT", "MRI", "CT"]
+    ).count()
+    pdf_count = CaseImageItem.objects.filter(caseimage__case=case, image_type="PDF").count()
 
     # Comment form
     comment_form = CommentForm()
@@ -177,6 +213,9 @@ def case_detail(request, pk):
         "activities": activities,
         "comment_form": comment_form,
         "dicom_count": dicom_count,
+        "regular_images_count": regular_images_count,
+        "pdf_count": pdf_count,
+        "opinions": opinions,
     }
     return render(request, template, context)
 
@@ -298,14 +337,89 @@ def case_update(request, pk):
 
 @login_required
 @require_http_methods(["POST"])
+def case_publish(request, pk):
+    """Publish a draft case"""
+    profile = ensure_user_profile(request.user)
+    
+    # Get the case - only the creator can publish their draft
+    case = get_object_or_404(Case, pk=pk, created_by=request.user)
+    
+    # Check if it's a draft
+    if case.status != "DRAFT":
+        messages.warning(request, "This case is already published.")
+        return redirect("cases:case_detail", pk=case.pk)
+    
+    # Publish the case (set to ACTIVE)
+    case.status = "ACTIVE"
+    case.save()
+    
+    # Log activity
+    CaseActivity.objects.create(
+        case=case,
+        user=request.user,
+        activity_type="UPDATED",
+        description=f"Published case",
+    )
+    
+    messages.success(request, f"Case {case.case_number} published successfully!")
+    
+    # Redirect based on referrer
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'case_list' in referer or 'cases/' in referer:
+        return redirect("cases:case_list")
+    return redirect("cases:case_detail", pk=case.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def case_to_draft(request, pk):
+    """Revert a case back to draft status"""
+    profile = ensure_user_profile(request.user)
+    
+    # Get the case - only the creator can revert to draft
+    case = get_object_or_404(Case, pk=pk, created_by=request.user)
+    
+    # Check if it's already a draft
+    if case.status == "DRAFT":
+        messages.warning(request, "This case is already a draft.")
+        return redirect("cases:case_detail", pk=case.pk)
+    
+    # Revert to draft
+    case.status = "DRAFT"
+    case.save()
+    
+    # Log activity
+    CaseActivity.objects.create(
+        case=case,
+        user=request.user,
+        activity_type="UPDATED",
+        description=f"Reverted case to draft",
+    )
+    
+    messages.success(request, f"Case {case.case_number} reverted to draft successfully!")
+    
+    # Redirect based on referrer
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'case_list' in referer or 'cases/' in referer:
+        return redirect("cases:case_list")
+    return redirect("cases:case_detail", pk=case.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
 def case_delete(request, pk):
     """Delete a case"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=pk, organization=profile.organization)
+    
+    # Staff users can delete any case, others only from their organization
+    if request.user.is_staff:
+        case = get_object_or_404(Case, pk=pk)
+    else:
+        case = get_object_or_404(Case, pk=pk, organization=profile.organization)
 
-    # Check permissions
-    if not (
-        request.user == case.created_by or profile.is_admin or request.user.is_staff
+    # Check permissions for non-staff users
+    if not request.user.is_staff and not (
+        request.user == case.created_by or profile.is_admin
     ):
         return HttpResponseForbidden("You don't have permission to delete this case.")
 
@@ -314,6 +428,139 @@ def case_delete(request, pk):
     messages.success(request, f"Case {case_number} deleted successfully!")
 
     return redirect("cases:case_list")
+
+
+@login_required
+@require_http_methods(["POST"])
+def add_opinion(request, pk):
+    """Add a clinical opinion to a case"""
+    profile = ensure_user_profile(request.user)
+    
+    # Get the case - staff can add opinions to any case
+    if request.user.is_staff:
+        case = get_object_or_404(Case, pk=pk)
+    else:
+        # Check if case belongs to user's org or is shared with them
+        from django.db.models import Q
+        case = get_object_or_404(
+            Case.objects.filter(
+                Q(pk=pk) & (Q(organization=profile.organization) | Q(share_with_branches=profile.organization))
+            ).distinct()
+        )
+    
+    # Get the opinion content from POST data
+    content = request.POST.get('content', '').strip()
+    status = request.POST.get('status', 'PUBLISHED')
+    
+    if content:
+        # Create the opinion
+        opinion = CaseOpinion.objects.create(
+            case=case,
+            author=request.user,
+            content=content,
+            status=status
+        )
+        
+        # Log activity
+        CaseActivity.objects.create(
+            case=case,
+            user=request.user,
+            activity_type="COMMENTED",
+            description=f"Added clinical opinion",
+        )
+        
+        messages.success(request, "Clinical opinion added successfully!")
+    else:
+        messages.error(request, "Opinion content cannot be empty.")
+    
+    return redirect("cases:case_detail", pk=case.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_opinion(request, pk):
+    """Update a clinical opinion"""
+    opinion = get_object_or_404(CaseOpinion, pk=pk)
+    case = opinion.case
+    
+    # Check permissions - only author or staff can edit
+    if request.user != opinion.author and not request.user.is_staff:
+        return HttpResponseForbidden("You don't have permission to edit this opinion.")
+    
+    # Get the updated content from POST data
+    content = request.POST.get('content', '').strip()
+    status = request.POST.get('status', opinion.status)
+    
+    if content:
+        # Update the opinion
+        opinion.content = content
+        opinion.status = status
+        opinion.save()
+        
+        # Log activity
+        CaseActivity.objects.create(
+            case=case,
+            user=request.user,
+            activity_type="UPDATED",
+            description=f"Updated clinical opinion",
+        )
+        
+        messages.success(request, "Clinical opinion updated successfully!")
+    else:
+        messages.error(request, "Opinion content cannot be empty.")
+    
+    return redirect("cases:case_detail", pk=case.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def publish_opinion(request, pk):
+    """Publish a draft clinical opinion"""
+    opinion = get_object_or_404(CaseOpinion, pk=pk)
+    case = opinion.case
+    
+    # Check permissions - only author can publish their own draft
+    if request.user != opinion.author:
+        return HttpResponseForbidden("You don't have permission to publish this opinion.")
+    
+    # Check if it's a draft
+    if opinion.status != "DRAFT":
+        messages.warning(request, "This opinion is already published.")
+        return redirect("cases:case_detail", pk=case.pk)
+    
+    # Publish the opinion
+    opinion.status = "PUBLISHED"
+    opinion.save()
+    
+    # Log activity
+    CaseActivity.objects.create(
+        case=case,
+        user=request.user,
+        activity_type="UPDATED",
+        description=f"Published clinical opinion",
+    )
+    
+    messages.success(request, "Clinical opinion published successfully!")
+    return redirect("cases:case_detail", pk=case.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_opinion(request, pk):
+    """Delete a clinical opinion"""
+    opinion = get_object_or_404(CaseOpinion, pk=pk)
+    case = opinion.case
+    
+    # Check permissions - only author can delete (not even staff)
+    if request.user != opinion.author:
+        return HttpResponseForbidden("You don't have permission to delete this opinion.")
+    
+    # Soft delete
+    opinion.is_deleted = True
+    opinion.save()
+    
+    messages.success(request, "Clinical opinion deleted successfully!")
+    return redirect("cases:case_detail", pk=case.pk)
 
 
 @login_required
@@ -622,57 +869,67 @@ def image_upload(request, case_pk):
     case = get_object_or_404(Case, pk=case_pk, organization=profile.organization)
 
     if request.method == "POST":
+        print(f"DEBUG: POST request received")
+        print(f"DEBUG: request.FILES: {request.FILES}")
+        print(f"DEBUG: request.FILES.keys(): {request.FILES.keys() if request.FILES else 'None'}")
+        
         form = MultipleImageUploadForm(request.POST, request.FILES)
 
         # Get files from the form
         files = request.FILES.getlist("images")
+        print(f"DEBUG: Files retrieved from form: {len(files)} files")
+        for f in files:
+            print(f"DEBUG: File: {f.name}, size: {f.size}")
 
         if form.is_valid() and files:
             uploaded_count = 0
             errors = []
-            title_prefix = form.cleaned_data.get("title_prefix", "") or "Image"
+            title_prefix = form.cleaned_data.get("title_prefix", "") or "Upload"
+            
+            # Generate a title for this upload batch/transaction
+            from datetime import datetime
+            if title_prefix:
+                group_title = f"{title_prefix} - {datetime.now().strftime('%Y%m%d %H:%M')}"
+            else:
+                group_title = f"Upload - {datetime.now().strftime('%Y%m%d %H:%M')}"
 
-            for index, uploaded_file in enumerate(files, 1):
+            # Create ONE CaseImage group for this entire upload transaction
+            case_image = CaseImage(
+                case=case,
+                title=group_title,
+                description=form.cleaned_data.get("description", "") or f"Batch upload of {len(files)} file(s)",
+                uploaded_by=request.user,
+            )
+            case_image.save()
+
+            # Now create CaseImageItems for each file in this group
+            print(f"DEBUG: Processing {len(files)} files for CaseImage {case_image.id}")
+            for index, uploaded_file in enumerate(files):
                 try:
-                    # Create title for each image
-                    if len(files) > 1:
-                        title = f"{title_prefix} {index}"
-                    else:
-                        title = (
-                            title_prefix
-                            if title_prefix != "Image"
-                            else uploaded_file.name.split(".")[0]
-                        )
-
-                    # Create CaseImage instance
-                    image = CaseImage(
-                        case=case,
-                        image=uploaded_file,
-                        title=title,
-                        description=form.cleaned_data.get("description", ""),
-                        image_type=form.cleaned_data.get("image_type", "PHOTO"),
-                        taken_date=form.cleaned_data.get("taken_date"),
-                        is_deidentified=form.cleaned_data.get("is_deidentified", False),
-                        uploaded_by=request.user,
-                        is_primary=(
-                            index == 1
-                            and not case.images.filter(is_primary=True).exists()
-                        ),
-                    )
-
-                    # Check if file is DICOM
+                    print(f"DEBUG: Processing file {index}: {uploaded_file.name}, size: {uploaded_file.size}")
                     file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+                    is_dicom = file_extension in [".dcm", ".dicom"]
+                    metadata = {}
+                    
+                    # Determine file type
                     if file_extension in [".dcm", ".dicom"]:
-                        image.is_dicom = True
-                        image.image_type = "DICOM"
+                        file_type = "DICOM"
+                    elif file_extension == ".pdf":
+                        file_type = "PDF"
+                    elif file_extension == ".zip":
+                        file_type = "ZIP"
+                    elif file_extension in [".jpg", ".jpeg", ".png", ".gif"]:
+                        file_type = form.cleaned_data.get("image_type", "PHOTO")
+                    else:
+                        file_type = "OTHER"
 
-                        # Try to extract DICOM metadata
+                    # If DICOM, try to extract metadata
+                    if is_dicom:
                         try:
                             uploaded_file.seek(0)
                             dicom_data = pydicom.dcmread(
                                 io.BytesIO(uploaded_file.read())
                             )
-                            metadata = {}
 
                             # Extract basic metadata
                             if hasattr(dicom_data, "PatientName"):
@@ -696,15 +953,28 @@ def image_upload(request, case_pk):
                             if hasattr(dicom_data, "StudyInstanceUID"):
                                 metadata["study_uid"] = str(dicom_data.StudyInstanceUID)
 
-                            image.metadata = metadata
                             uploaded_file.seek(0)  # Reset file pointer
                         except Exception as e:
                             print(f"Error reading DICOM metadata: {e}")
 
-                    image.save()
+                    # Create the CaseImageItem
+                    image_item = CaseImageItem(
+                        caseimage=case_image,
+                        image=uploaded_file,
+                        image_type=file_type,
+                        is_dicom=is_dicom,
+                        is_primary=(index == 0 and not CaseImageItem.objects.filter(
+                            caseimage__case=case, is_primary=True
+                        ).exists()),
+                        metadata=metadata,
+                        order=index,  # Use index for ordering within the group
+                    )
+                    image_item.save()
                     uploaded_count += 1
+                    print(f"DEBUG: Successfully saved CaseImageItem {image_item.id} for file {uploaded_file.name}")
 
                 except Exception as e:
+                    print(f"DEBUG: Error saving file {uploaded_file.name}: {str(e)}")
                     errors.append(f"{uploaded_file.name}: {str(e)}")
 
             # Log activity if any files were uploaded
@@ -728,6 +998,11 @@ def image_upload(request, case_pk):
             else:
                 messages.error(request, "No files were uploaded successfully.")
         else:
+            print(f"DEBUG: Form not valid or no files")
+            print(f"DEBUG: form.is_valid(): {form.is_valid()}")
+            print(f"DEBUG: form.errors: {form.errors}")
+            print(f"DEBUG: files count: {len(files)}")
+            
             if not files:
                 messages.error(request, "Please select at least one file to upload.")
             else:
@@ -800,20 +1075,16 @@ def image_list(request, case_pk):
     profile = ensure_user_profile(request.user)
     case = get_object_or_404(Case, pk=case_pk, organization=profile.organization)
     
-    # Sort all images: primary first, then by order (for DICOM), then by created date
-    # DICOM images will be sorted by their Instance Number (order field)
-    # Non-DICOM images will be sorted by created date
-    images = case.images.select_related("uploaded_by").order_by(
-        "-is_primary",  # Primary images first
-        "is_dicom",      # Non-DICOM images before DICOM
-        "order",         # Sort by Instance Number (affects DICOM images)
-        "-created_at"    # Then by creation date (affects non-DICOM)
+    # Sort all images by created date
+    images = case.images.select_related("uploaded_by").prefetch_related("items").order_by(
+        "-created_at"   # Newest first
     )
 
     # Calculate statistics
-    dicom_count = case.images.filter(is_dicom=True).count()
-    photo_count = case.images.filter(image_type="PHOTO").count()
-    deidentified_count = case.images.filter(is_deidentified=True).count()
+    dicom_count = CaseImageItem.objects.filter(caseimage__case=case, is_dicom=True).count()
+    photo_count = CaseImageItem.objects.filter(caseimage__case=case, image_type="PHOTO").count()
+    # Count total image groups instead
+    total_groups = case.images.count()
 
     # Get theme and select appropriate template
     theme = request.session.get("theme", django_settings.DEFAULT_THEME)
@@ -827,7 +1098,56 @@ def image_list(request, case_pk):
         "images": images,
         "dicom_count": dicom_count,
         "photo_count": photo_count,
-        "deidentified_count": deidentified_count,
+        "total_groups": total_groups,
+    }
+    return render(request, template, context)
+
+
+@login_required
+def image_detail(request, pk):
+    """View details of a specific CaseImage and its items"""
+    profile = ensure_user_profile(request.user)
+    image = get_object_or_404(CaseImage, pk=pk)
+    
+    # Check permissions - allow access if case belongs to user's org OR is shared with user's org
+    user_org = profile.organization
+    case = image.case
+    has_access = (case.organization == user_org) or (case.is_shared and user_org in case.share_with_branches.all())
+    
+    if not has_access:
+        return HttpResponseForbidden("You don't have permission to view this image.")
+    
+    # Get all items for this CaseImage
+    items = image.items.all().order_by("order")
+    
+    # Calculate statistics for this specific CaseImage
+    dicom_count = items.filter(is_dicom=True).count()
+    photo_count = items.filter(image_type="PHOTO").count()
+    total_items = items.count()
+    
+    # Log view activity
+    CaseActivity.objects.create(
+        case=image.case,
+        user=request.user,
+        activity_type="VIEWED",
+        description=f"Viewed image group: {image.title}",
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+    
+    # Get theme and select appropriate template
+    theme = request.session.get("theme", django_settings.DEFAULT_THEME)
+    if theme in ["brite", "brite_sidebar"]:
+        template = "cases/image_detail_brite.html"
+    else:
+        template = "cases/image_detail.html"
+    
+    context = {
+        "case": image.case,
+        "image": image,
+        "items": items,
+        "dicom_count": dicom_count,
+        "photo_count": photo_count,
+        "total_items": total_items,
     }
     return render(request, template, context)
 
@@ -838,8 +1158,12 @@ def dicom_viewer(request, pk):
     profile = ensure_user_profile(request.user)
     image = get_object_or_404(CaseImage, pk=pk)
 
-    # Check permissions
-    if image.case.organization != profile.organization:
+    # Check permissions - allow access if case belongs to user's org OR is shared with user's org
+    user_org = profile.organization
+    case = image.case
+    has_access = (case.organization == user_org) or (case.is_shared and user_org in case.share_with_branches.all())
+    
+    if not has_access:
         return HttpResponseForbidden("You don't have permission to view this image.")
 
     # Log view activity
@@ -858,18 +1182,82 @@ def dicom_viewer(request, pk):
 
 
 @login_required
+def dicom_item_thumbnail(request, pk):
+    """Convert individual DICOM item to full-size JPG image"""
+    profile = ensure_user_profile(request.user)
+    item = get_object_or_404(CaseImageItem, pk=pk)
+    
+    # Check permissions - allow access if case belongs to user's org OR is shared with user's org
+    user_org = profile.organization
+    case = item.caseimage.case
+    has_access = (case.organization == user_org) or (case.is_shared and user_org in case.share_with_branches.all())
+    
+    if not has_access:
+        return HttpResponseForbidden("You don't have permission to view this image.")
+    
+    if not item.is_dicom:
+        return HttpResponse("Not a DICOM file", status=404)
+    
+    try:
+        # Read DICOM file
+        dicom_path = item.image.path
+        dicom_data = pydicom.dcmread(dicom_path)
+        
+        # Convert to PIL Image
+        pixel_array = dicom_data.pixel_array
+        
+        # Normalize the image
+        if hasattr(dicom_data, "RescaleSlope") and hasattr(dicom_data, "RescaleIntercept"):
+            pixel_array = pixel_array * dicom_data.RescaleSlope + dicom_data.RescaleIntercept
+        
+        # Convert to 8-bit
+        pixel_array = ((pixel_array - pixel_array.min()) / (pixel_array.max() - pixel_array.min()) * 255).astype("uint8")
+        
+        # Create PIL Image
+        pil_image = PILImage.fromarray(pixel_array)
+        
+        # Don't create thumbnail - show full image
+        # pil_image.thumbnail((200, 200), PILImage.Resampling.LANCZOS)
+        
+        # Convert to RGB if grayscale
+        if pil_image.mode != "RGB":
+            pil_image = pil_image.convert("RGB")
+        
+        # Save to bytes with high quality
+        buffer = io.BytesIO()
+        pil_image.save(buffer, format="JPEG", quality=95)
+        buffer.seek(0)
+        
+        return HttpResponse(buffer, content_type="image/jpeg")
+        
+    except Exception as e:
+        print(f"Error converting DICOM to thumbnail: {e}")
+        # Return a placeholder image or error image
+        return HttpResponse("Error processing DICOM", status=500)
+
+
+@login_required
 def dicom_to_jpg(request, pk):
     """Convert DICOM to JPG for preview"""
     profile = ensure_user_profile(request.user)
     image = get_object_or_404(CaseImage, pk=pk)
 
-    # Check permissions
-    if image.case.organization != profile.organization:
+    # Check permissions - allow access if case belongs to user's org OR is shared with user's org
+    user_org = profile.organization
+    case = image.case
+    has_access = (case.organization == user_org) or (case.is_shared and user_org in case.share_with_branches.all())
+    
+    if not has_access:
         return HttpResponseForbidden("You don't have permission to view this image.")
+
+    # Get the first DICOM item from this CaseImage
+    dicom_item = image.items.filter(is_dicom=True).first()
+    if not dicom_item:
+        return HttpResponse("No DICOM file found", status=404)
 
     try:
         # Read DICOM file
-        dicom_path = image.image.path
+        dicom_path = dicom_item.image.path
         dicom_data = pydicom.dcmread(dicom_path)
 
         # Convert to PIL Image
@@ -918,37 +1306,60 @@ def dicom_to_jpg(request, pk):
 def dicom_series_viewer(request, pk):
     """View DICOM series (CBCT stack) with advanced viewer"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=pk, organization=profile.organization)
+    user_org = profile.organization
+    
+    # Allow viewing if case belongs to user's org OR is shared with user's org
+    from django.db.models import Q
+    case_filter = Q(pk=pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
 
-    # Get all DICOM images for this case, sorted by order field
-    # dicom_images = CaseImage.objects.get_dicom_series_sorted(case)
-    dicom_images = CaseImage.objects.filter(case=case, is_dicom=True).order_by("order")
+    # Get all CaseImage groups that contain DICOM files
+    # Now we need to get CaseImageItems that are DICOM files
+    dicom_image_groups = CaseImage.objects.filter(
+        case=case, 
+        items__is_dicom=True
+    ).distinct().prefetch_related("items")
 
-    # print(dicom_images)
-
-    if not dicom_images.exists():
+    if not dicom_image_groups.exists():
         messages.warning(request, "No DICOM images found for this case.")
         return redirect("cases:case_detail", pk=case.pk)
 
-    # Prepare image URLs for the viewer
-    image_urls = [img.image.url for img in dicom_images]
+    # Collect all DICOM items from all groups, sorted by order
+    dicom_items = []
+    for group in dicom_image_groups:
+        dicom_items.extend(group.items.filter(is_dicom=True).order_by("order"))
 
-    # print(image_urls)
+    if not dicom_items:
+        messages.warning(request, "No DICOM image files found for this case.")
+        return redirect("cases:case_detail", pk=case.pk)
+
+    # Prepare image URLs for the viewer
+    image_urls = [item.image.url for item in dicom_items]
 
     # Log activity
     CaseActivity.objects.create(
         case=case,
         user=request.user,
         activity_type="VIEWED",
-        description=f"Viewed DICOM series ({dicom_images.count()} slices)",
+        description=f"Viewed DICOM series ({len(dicom_items)} slices)",
         ip_address=request.META.get("REMOTE_ADDR"),
     )
 
+    # Check if user came from a specific image group
+    from_image_id = request.GET.get('from_image')
+    from_image = None
+    if from_image_id:
+        try:
+            from_image = CaseImage.objects.get(pk=from_image_id, case=case)
+        except CaseImage.DoesNotExist:
+            pass
+    
     context = {
         "case": case,
-        "dicom_images": dicom_images,
+        "dicom_images": dicom_items,
         "image_urls": image_urls,
-        "total_slices": dicom_images.count(),
+        "total_slices": len(dicom_items),
+        "from_image": from_image,
     }
 
     # Select template based on theme
@@ -1002,13 +1413,13 @@ def delete_dicom_series(request, pk):
     ):
         return HttpResponseForbidden("You don't have permission to delete DICOM series for this case.")
     
-    # Get all DICOM images for this case
-    dicom_images = case.images.filter(is_dicom=True)
-    dicom_count = dicom_images.count()
+    # Get all CaseImage groups that contain DICOM files
+    dicom_image_groups = case.images.filter(items__is_dicom=True).distinct()
+    dicom_count = CaseImageItem.objects.filter(caseimage__case=case, is_dicom=True).count()
     
     if dicom_count > 0:
-        # Delete all DICOM images
-        dicom_images.delete()
+        # Delete all DICOM image groups
+        dicom_image_groups.delete()
         
         # Log activity
         CaseActivity.objects.create(
@@ -1103,7 +1514,12 @@ def ajax_case_status_update(request, pk):
 def download_dicom_series(request, pk):
     """Download DICOM series as compressed ZIP file"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=pk, organization=profile.organization)
+    user_org = profile.organization
+    
+    # Allow downloading if case belongs to user's org OR is shared with user's org
+    from django.db.models import Q
+    case_filter = Q(pk=pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
 
     # Get all DICOM images for this case, sorted by order field
     dicom_images = CaseImage.objects.get_dicom_series_sorted(case)
@@ -1175,12 +1591,17 @@ DICOM Files:
 def download_all_images(request, pk):
     """Download all images (DICOM and regular) as compressed ZIP file"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=pk, organization=profile.organization)
+    user_org = profile.organization
+    
+    # Allow downloading if case belongs to user's org OR is shared with user's org
+    from django.db.models import Q
+    case_filter = Q(pk=pk) & (Q(organization=user_org) | Q(share_with_branches=user_org))
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
 
-    # Get all images for this case
-    all_images = case.images.all().order_by("is_dicom", "image")
+    # Get all image groups for this case
+    all_image_groups = case.images.all().prefetch_related("items").order_by("image_type", "-created_at")
 
-    if not all_images.exists():
+    if not all_image_groups.exists():
         return JsonResponse({"error": "No images found for this case"}, status=404)
 
     # Log activity
@@ -1199,15 +1620,20 @@ def download_all_images(request, pk):
         with zipfile.ZipFile(
             zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6
         ) as zip_file:
+            # Count total items
+            total_items = sum(group.items.count() for group in all_image_groups)
+            dicom_items = sum(group.items.filter(is_dicom=True).count() for group in all_image_groups)
+            
             # Add case information file
             case_info = f"""DCPlant - Complete Image Export
 Case Number: {case.case_number}
 Patient: {case.patient.full_name}
 MRN: {case.patient.mrn}
 Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Total Images: {all_images.count()}
-DICOM Files: {all_images.filter(is_dicom=True).count()}
-Regular Images: {all_images.filter(is_dicom=False).count()}
+Total Image Groups: {all_image_groups.count()}
+Total Files: {total_items}
+DICOM Files: {dicom_items}
+Regular Images: {total_items - dicom_items}
 Exported by: {request.user.get_full_name() or request.user.username}
 
 Image Files:
@@ -1216,46 +1642,76 @@ Image Files:
             dicom_count = 0
             image_count = 0
 
-            for image in all_images:
-                try:
-                    # Read the file
-                    file_path = image.image.path
-                    if os.path.exists(file_path):
-                        # Organize by type
-                        if image.is_dicom:
-                            dicom_count += 1
-                            folder = "DICOM_Files"
-                            original_name = os.path.basename(image.image.name)
-                            if not original_name.lower().endswith((".dcm", ".dicom")):
-                                original_name = f"dicom_{dicom_count:04d}.dcm"
-                        else:
-                            image_count += 1
-                            folder = "Images"
-                            original_name = os.path.basename(image.image.name)
-                            # Ensure proper extension
-                            if "." not in original_name:
-                                ext = ".jpg"  # Default extension
-                                original_name += ext
+            for image_group in all_image_groups:
+                for item in image_group.items.all():
+                    try:
+                        # Read the file
+                        file_path = item.image.path
+                        if os.path.exists(file_path):
+                            # Organize by type
+                            if item.is_dicom:
+                                dicom_count += 1
+                                folder = "DICOM_Files"
+                                original_name = os.path.basename(item.image.name)
+                                if not original_name.lower().endswith((".dcm", ".dicom")):
+                                    original_name = f"dicom_{dicom_count:04d}.dcm"
+                            else:
+                                image_count += 1
+                                folder = f"Images/{item.image_type}"
+                                original_name = os.path.basename(item.image.name)
+                                # Ensure proper extension
+                                if "." not in original_name:
+                                    ext = ".jpg"  # Default extension
+                                    original_name += ext
 
-                        # Add to zip with organized structure
-                        zip_path_in_archive = f"{folder}/{original_name}"
-                        zip_file.write(file_path, zip_path_in_archive)
+                            # Add to zip with organized structure
+                            zip_path_in_archive = f"{folder}/{original_name}"
+                            zip_file.write(file_path, zip_path_in_archive)
 
-                        # Add to case info
-                        file_size = os.path.getsize(file_path)
-                        file_size_mb = file_size / (1024 * 1024)
-                        case_info += f"- {zip_path_in_archive} ({file_size_mb:.2f} MB) - {image.title}\n"
+                            # Add to case info
+                            file_size = os.path.getsize(file_path)
+                            file_size_mb = file_size / (1024 * 1024)
+                            case_info += f"- {zip_path_in_archive} ({file_size_mb:.2f} MB) - {image_group.title}\n"
 
-                except Exception as e:
-                    print(f"Error adding image file {image.id}: {e}")
-                    continue
+                    except Exception as e:
+                        print(f"Error adding image file {item.id}: {e}")
+                        continue
 
             # Add case information file
             zip_file.writestr("README.txt", case_info)
 
-        # Read the zip file and return as response
-        with open(zip_path, "rb") as zip_data:
-            response = HttpResponse(zip_data.read(), content_type="application/zip")
-            filename = f'case_{case.case_number}_all_images_{datetime.now().strftime("%Y%m%d")}.zip'
-            response["Content-Disposition"] = f'attachment; filename="{filename}"'
-            return response
+        # Stream the zip file as response for large files
+        from django.http import FileResponse
+        zip_file_handle = open(zip_path, "rb")
+        response = FileResponse(zip_file_handle, content_type="application/zip", as_attachment=True)
+        filename = f'case_{case.case_number}_all_images_{datetime.now().strftime("%Y%m%d")}.zip'
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        # Get file size for Content-Length header
+        file_size = os.path.getsize(zip_path)
+        response["Content-Length"] = str(file_size)
+        return response
+
+
+@login_required
+def check_draft_case(request):
+    """API endpoint to check if user has draft cases"""
+    profile = ensure_user_profile(request.user)
+    
+    # Check for draft cases created by the current user
+    draft_case = Case.objects.filter(
+        created_by=request.user,
+        status="DRAFT"
+    ).order_by("-created_at").first()
+    
+    if draft_case:
+        return JsonResponse({
+            "has_draft": True,
+            "case_id": draft_case.pk,
+            "case_number": draft_case.case_number,
+            "patient_name": draft_case.patient.full_name if draft_case.patient else "No patient",
+            "created_at": draft_case.created_at.strftime("%Y-%m-%d %H:%M")
+        })
+    else:
+        return JsonResponse({
+            "has_draft": False
+        })

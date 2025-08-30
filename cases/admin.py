@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Patient, Category, Case, CaseImage, Comment, CaseActivity
+from .models import Patient, Category, Case, CaseImage, CaseImageItem, Comment, CaseActivity
 
 
 class CaseImageInline(admin.TabularInline):
@@ -222,21 +222,39 @@ class CaseAdmin(admin.ModelAdmin):
     priority_badge.short_description = "Priority"
 
 
+class CaseImageItemInline(admin.TabularInline):
+    model = CaseImageItem
+    extra = 0
+    fields = ("image", "is_dicom", "order")
+    readonly_fields = ("filename",)
+
+    def filename(self, obj):
+        return obj.filename if obj else ""
+    filename.short_description = "Filename"
+
+
 @admin.register(CaseImage)
 class CaseImageAdmin(admin.ModelAdmin):
     list_display = (
         "title",
-        "filename",
-        "image_type",
-        "is_primary",
-        "is_deidentified",
+        "case_number",
+        "item_count",
         "uploaded_by",
-        "order",
+        "created_at",
     )
-    list_filter = ("image_type", "is_primary", "is_deidentified", "created_at")
+    list_filter = ("created_at",)
     search_fields = ("title", "description", "case__case_number")
-    readonly_fields = ("uploaded_by", "created_at", "updated_at")
+    readonly_fields = ("uploaded_by", "created_at", "updated_at", "item_count")
     raw_id_fields = ("case",)
+    inlines = [CaseImageItemInline]
+    
+    def case_number(self, obj):
+        return obj.case.case_number if obj.case else ""
+    case_number.short_description = "Case Number"
+    
+    def item_count(self, obj):
+        return obj.items.count()
+    item_count.short_description = "Image Count"
 
     def save_model(self, request, obj, form, change):
         if not obj.uploaded_by:
@@ -250,6 +268,33 @@ class CaseImageAdmin(admin.ModelAdmin):
             activity_type="IMAGE_ADDED" if not change else "UPDATED",
             description=f'Image "{obj.title}" {"added" if not change else "updated"}',
         )
+
+
+@admin.register(CaseImageItem)
+class CaseImageItemAdmin(admin.ModelAdmin):
+    list_display = (
+        "filename",
+        "caseimage_title",
+        "case_number",
+        "is_dicom",
+        "order",
+    )
+    list_filter = ("is_dicom", "image_type")
+    search_fields = ("caseimage__title", "caseimage__case__case_number")
+    readonly_fields = ("filename",)
+    raw_id_fields = ("caseimage",)
+    
+    def filename(self, obj):
+        return obj.filename
+    filename.short_description = "Filename"
+    
+    def caseimage_title(self, obj):
+        return obj.caseimage.title if obj.caseimage else ""
+    caseimage_title.short_description = "Image Group"
+    
+    def case_number(self, obj):
+        return obj.caseimage.case.case_number if obj.caseimage and obj.caseimage.case else ""
+    case_number.short_description = "Case Number"
 
 
 @admin.register(Comment)

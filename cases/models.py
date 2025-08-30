@@ -2,8 +2,10 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from accounts.models import Organization
+from datetime import datetime
 import uuid
 import os
+import re
 
 
 class Patient(models.Model):
@@ -13,9 +15,7 @@ class Patient(models.Model):
         ("O", "Other"),
     ]
 
-    mrn = models.CharField(
-        max_length=50, unique=True, help_text="Medical Record Number"
-    )
+    mrn = models.CharField(max_length=50, unique=True, help_text="Chart Number")
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     date_of_birth = models.DateField()
@@ -47,7 +47,7 @@ class Patient(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.last_name}, {self.first_name} (MRN: {self.mrn})"
+        return f"{self.last_name}, {self.first_name} (CN: {self.mrn})"
 
     @property
     def full_name(self):
@@ -107,12 +107,17 @@ class Case(models.Model):
     case_number = models.CharField(max_length=50, unique=True, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="cases")
     category = models.ForeignKey(
-        Category, on_delete=models.SET_NULL, null=True, related_name="cases"
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cases",
     )
+    title = models.CharField(max_length=255)
     chief_complaint = models.TextField()
-    clinical_findings = models.TextField()
-    diagnosis = models.TextField()
-    treatment_plan = models.TextField()
+    clinical_findings = models.TextField(null=True, blank=True)
+    diagnosis = models.TextField(null=True, blank=True)
+    treatment_plan = models.TextField(null=True, blank=True)
     prognosis = models.TextField(blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
@@ -161,7 +166,6 @@ class Case(models.Model):
         super().save(*args, **kwargs)
 
     def generate_case_number(self):
-        from datetime import datetime
 
         prefix = self.organization.name[:3].upper()
         timestamp = datetime.now().strftime("%Y%m%d")
@@ -172,16 +176,40 @@ class Case(models.Model):
         return f"Case {self.case_number} - {self.patient.full_name}"
 
 
+class CaseOpinion(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Draft"),
+        ("PUBLISHED", "Published"),
+    ]
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="opinions")
+    author = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="case_opinions"
+    )
+    content = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Opinion on {self.case.case_number} by {self.author.username}"
+
+
 def case_image_upload_path(instance, filename):
     """
     Custom upload path function that organizes files by case ID.
     Files will be stored in: cases/case_<case_id>/<filename>
     """
-    # Get the case ID
-    case_id = instance.case.id if instance.case else 'unknown'
-    
+    # Get the case ID - instance is a CaseImageItem which has caseimage.case
+    if hasattr(instance, "caseimage") and instance.caseimage:
+        case_id = instance.caseimage.case.id if instance.caseimage.case else "unknown"
+    else:
+        case_id = "unknown"
+
     # Preserve the original filename
-    return f'cases/case_{case_id}/{filename}'
+    return f"cases/case_{case_id}/{filename}"
 
 
 class CaseImageManager(models.Manager):
@@ -191,32 +219,15 @@ class CaseImageManager(models.Manager):
 
 
 class CaseImage(models.Model):
-    IMAGE_TYPE_CHOICES = [
-        ("PHOTO", "Photograph"),
-        ("XRAY", "X-Ray"),
-        ("CBCT", "CBCT Scan"),
-        ("MRI", "MRI"),
-        ("CT", "CT Scan"),
-        ("DICOM", "DICOM"),
-        ("DIAGRAM", "Diagram"),
-        ("OTHER", "Other"),
-    ]
+    """Represents an upload transaction/batch - a group of related files"""
 
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="images")
-    image = models.FileField(upload_to=case_image_upload_path)
-    image_type = models.CharField(
-        max_length=20, choices=IMAGE_TYPE_CHOICES, default="PHOTO"
+    title = models.CharField(max_length=200, help_text="Name of this upload batch")
+    description = models.TextField(
+        blank=True, help_text="Description of this upload batch"
     )
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    taken_date = models.DateField(null=True, blank=True)
 
-    metadata = models.JSONField(default=dict, blank=True)
-    is_primary = models.BooleanField(default=False)
-    is_deidentified = models.BooleanField(default=False)
-    is_dicom = models.BooleanField(default=False)
-    order = models.IntegerField(default=0, help_text="Sort order for DICOM series")
-
+    # Upload transaction metadata
     uploaded_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="uploaded_images"
     )
@@ -226,16 +237,59 @@ class CaseImage(models.Model):
     objects = CaseImageManager()
 
     class Meta:
-        ordering = ["case", "order"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.title} - {self.case.case_number}"
 
     @property
+    def item_count(self):
+        """Get the count of CaseImageItems in this CaseImage"""
+        return self.items.count()
+
+    @property
+    def first_item(self):
+        """Get the first CaseImageItem for preview purposes"""
+        return self.items.first()
+
+
+class CaseImageItem(models.Model):
+    """Individual file within a CaseImage upload batch"""
+
+    IMAGE_TYPE_CHOICES = [
+        ("PHOTO", "Photograph"),
+        ("PANO", "Panoramic X-Ray"),
+        ("CBCT", "CBCT Scan"),
+        ("XRAY", "X-Ray"),
+        ("MRI", "MRI"),
+        ("CT", "CT Scan"),
+        ("DICOM", "DICOM"),
+        ("DIAGRAM", "Diagram"),
+        ("PDF", "PDF Document"),
+        ("ZIP", "ZIP Archive"),
+        ("OTHER", "Other"),
+    ]
+
+    caseimage = models.ForeignKey(
+        CaseImage, on_delete=models.CASCADE, related_name="items"
+    )
+    image = models.FileField(upload_to=case_image_upload_path)
+
+    # File-specific metadata
+    image_type = models.CharField(
+        max_length=20, choices=IMAGE_TYPE_CHOICES, default="PHOTO"
+    )
+    is_dicom = models.BooleanField(default=False)
+    is_primary = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
+    order = models.IntegerField(default=0, help_text="Sort order within the batch")
+
+    class Meta:
+        ordering = ["order"]
+
+    @property
     def filename(self):
         """Get the filename without path"""
-        import os
-
         return os.path.basename(self.image.name)
 
     @property
@@ -246,7 +300,6 @@ class CaseImage(models.Model):
     @property
     def filename_numeric(self):
         """Extract numeric part from filename for sorting DICOM series in ascending order"""
-        import re
 
         filename = self.filename
 
@@ -289,7 +342,7 @@ class CaseImage(models.Model):
         if self.is_dicom and not self.pk:  # Only on creation
             # Try to extract Instance Number from DICOM metadata
             if self.metadata and isinstance(self.metadata, dict):
-                instance_number = self.metadata.get('instance_number')
+                instance_number = self.metadata.get("instance_number")
                 if instance_number:
                     self.order = int(instance_number)
                 else:
@@ -297,11 +350,6 @@ class CaseImage(models.Model):
             else:
                 self.order = self.filename_numeric
 
-        # Ensure only one primary image per case
-        if self.is_primary:
-            CaseImage.objects.filter(case=self.case, is_primary=True).exclude(
-                pk=self.pk
-            ).update(is_primary=False)
         super().save(*args, **kwargs)
 
 

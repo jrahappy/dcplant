@@ -171,8 +171,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-DATA_UPLOAD_MAX_NUMBER_FILES = 800
-
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -329,8 +327,9 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 # File Upload Settings
 DATA_UPLOAD_MAX_NUMBER_FILES = 800  # Allow up to 800 files for DICOM series
-FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB per file
-DATA_UPLOAD_MAX_MEMORY_SIZE = 900 * 1024 * 1024  # 900MB total upload size
+FILE_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024  # 1GB per file
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024  # 1GB total upload size
+FILE_UPLOAD_PERMISSIONS = 0o644  # File permissions for uploaded files
 
 # Cache Configuration
 CACHES = {

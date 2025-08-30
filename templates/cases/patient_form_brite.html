@@ -35,7 +35,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="{{ form.mrn.id_for_label }}" class="form-label fw-semibold">
-                                MRN (Medical Record Number) <span class="text-danger">*</span>
+                                Chart Number <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
                                 <span class="input-group-text border-2 border-dark">
@@ -45,7 +45,7 @@
                                        class="form-control border-2 border-dark {% if form.mrn.errors %}is-invalid{% endif %}"
                                        id="{{ form.mrn.id_for_label }}"
                                        value="{{ form.mrn.value|default:'' }}"
-                                       placeholder="Enter unique MRN"
+                                       placeholder="Enter unique Chart Number"
                                        required>
                             </div>
                             {% if form.mrn.errors %}
@@ -58,7 +58,7 @@
                             {% endif %}
                         </div>
                         
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label for="{{ form.gender.id_for_label }}" class="form-label fw-semibold">
                                 Gender <span class="text-danger">*</span>
                             </label>
@@ -70,7 +70,7 @@
                                         class="form-select border-2 border-dark {% if form.gender.errors %}is-invalid{% endif %}"
                                         id="{{ form.gender.id_for_label }}"
                                         required>
-                                    <option value="">-- Select Gender --</option>
+                                    <!-- <option value="">-- Select Gender --</option> -->
                                     {% for value, label in form.gender.field.choices %}
                                     <option value="{{ value }}" {% if form.gender.value == value %}selected{% endif %}>
                                         {{ label }}
@@ -81,6 +81,27 @@
                             {% if form.gender.errors %}
                             <div class="invalid-feedback d-block">
                                 {{ form.gender.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.date_of_birth.id_for_label }}" class="form-label fw-semibold">
+                                Date of Birth <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 border-dark">
+                                    <i class="bi bi-calendar3"></i>
+                                </span>
+                                <input type="date" name="{{ form.date_of_birth.name }}" 
+                                       class="form-control border-2 border-dark {% if form.date_of_birth.errors %}is-invalid{% endif %}"
+                                       id="{{ form.date_of_birth.id_for_label }}"
+                                       value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}"
+                                       max="{% now 'Y-m-d' %}"
+                                       required>
+                            </div>
+                            {% if form.date_of_birth.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.date_of_birth.errors.0 }}
                             </div>
                             {% endif %}
                         </div>
@@ -132,53 +153,6 @@
                         </div>
                     </div>
                     
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="{{ form.date_of_birth.id_for_label }}" class="form-label fw-semibold">
-                                Date of Birth <span class="text-danger">*</span>
-                            </label>
-                            <div class="input-group">
-                                <span class="input-group-text border-2 border-dark">
-                                    <i class="bi bi-calendar3"></i>
-                                </span>
-                                <input type="date" name="{{ form.date_of_birth.name }}" 
-                                       class="form-control border-2 border-dark {% if form.date_of_birth.errors %}is-invalid{% endif %}"
-                                       id="{{ form.date_of_birth.id_for_label }}"
-                                       value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}"
-                                       max="{% now 'Y-m-d' %}"
-                                       required>
-                            </div>
-                            {% if form.date_of_birth.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.date_of_birth.errors.0 }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label for="blood_type" class="form-label fw-semibold">
-                                Blood Type
-                            </label>
-                            <div class="input-group">
-                                <span class="input-group-text border-2 border-dark">
-                                    <i class="bi bi-droplet"></i>
-                                </span>
-                                <select name="blood_type" 
-                                        class="form-select border-2 border-dark"
-                                        id="blood_type">
-                                    <option value="">-- Select Blood Type --</option>
-                                    <option value="A+">A+</option>
-                                    <option value="A-">A-</option>
-                                    <option value="B+">B+</option>
-                                    <option value="B-">B-</option>
-                                    <option value="AB+">AB+</option>
-                                    <option value="AB-">AB-</option>
-                                    <option value="O+">O+</option>
-                                    <option value="O-">O-</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             
@@ -234,7 +208,7 @@
                         </div>
                     </div>
                     
-                    <div class="mb-3">
+                    <!-- <div class="mb-3">
                         <label for="{{ form.address.id_for_label }}" class="form-label fw-semibold">
                             Address
                         </label>
@@ -253,7 +227,7 @@
                             {{ form.address.errors.0 }}
                         </div>
                         {% endif %}
-                    </div>
+                    </div> -->
                 </div>
             </div>
             

@@ -29,13 +29,13 @@ h1, h2, h3, h4, h5, h6 {
 .page-title {
     font-size: 2.1875rem;
     font-weight: 500;
-    color: #000 !important;
+    color: var(--bs-heading-color) !important;
     margin-bottom: 1.5rem;
 }
 
-/* Ensure page title icons also use black */
+/* Ensure page title icons also use proper color */
 .page-title i {
-    color: #000 !important;
+    color: var(--bs-heading-color) !important;
 }
 
 /* More specific selectors for page titles */
@@ -43,7 +43,17 @@ h1.page-title,
 h2.page-title,
 h3.page-title,
 .main-content .page-title {
-    color: #000 !important;
+    color: var(--bs-heading-color) !important;
+}
+
+/* Dark mode support for page titles */
+[data-bs-theme="dark"] .page-title,
+[data-bs-theme="dark"] h1.page-title,
+[data-bs-theme="dark"] h2.page-title,
+[data-bs-theme="dark"] h3.page-title,
+[data-bs-theme="dark"] .main-content .page-title,
+[data-bs-theme="dark"] .page-title i {
+    color: var(--bs-heading-color) !important;
 }
 
 /* ========================================

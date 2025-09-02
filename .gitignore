@@ -52,6 +52,7 @@ htmlcov/
 coverage.xml
 *.cover
 .hypothesis/
+management/
 
 # Celery
 celerybeat-schedule

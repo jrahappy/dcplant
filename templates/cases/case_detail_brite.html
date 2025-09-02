@@ -1221,8 +1221,8 @@ function deleteDicomSeries() {
 <!-- Add Opinion Modal -->
 <div class="modal fade" id="addOpinionModal" tabindex="-1" aria-labelledby="addOpinionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-2 border-dark">
-            <div class="modal-header bg-info text-white">
+        <div class=" modal-content border-2 border-dark ">
+            <div class="d-flex justify-content-between modal-header bg-info text-white ">
                 <h5 class="modal-title" id="addOpinionModalLabel">
                     <i class="bi bi-chat-left-text"></i> Add Clinical Opinion
                 </h5>
@@ -1230,7 +1230,9 @@ function deleteDicomSeries() {
                     <button type="button" class="btn btn-sm btn-light me-2" onclick="toggleModalFullscreen('addOpinionModal')" title="Toggle Fullscreen">
                         <i class="bi bi-arrows-fullscreen" id="addOpinionModalFullscreenIcon"></i>
                     </button>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn btn-sm btn-warning" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
             </div>
             <form method="post" action="{% url 'cases:add_opinion' case.pk %}">
@@ -1273,7 +1275,7 @@ function deleteDicomSeries() {
                         Cancel
                     </button>
                     <button type="submit" class="btn btn-info border-2 border-dark">
-                        <i class="bi bi-send"></i> Submit Opinion
+                        <i class="bi bi-send"></i> Save Opinion
                     </button>
                 </div>
             </form>
@@ -1285,15 +1287,17 @@ function deleteDicomSeries() {
 <div class="modal fade" id="editOpinionModal" tabindex="-1" aria-labelledby="editOpinionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content border-2 border-dark">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="editOpinionModalLabel">
-                    <i class="bi bi-pencil-square"></i> Edit Clinical Opinion
+            <div class="d-flex justify-content-between modal-header bg-info text-white ">
+                <h5 class="modal-title" id="addOpinionModalLabel">
+                    <i class="bi bi-chat-left-text"></i> Edit Clinical Opinion
                 </h5>
                 <div>
                     <button type="button" class="btn btn-sm btn-light me-2" onclick="toggleModalFullscreen('editOpinionModal')" title="Toggle Fullscreen">
                         <i class="bi bi-arrows-fullscreen" id="editOpinionModalFullscreenIcon"></i>
                     </button>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn btn-sm btn-warning" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
             </div>
             <form id="editOpinionForm" method="post" action="">

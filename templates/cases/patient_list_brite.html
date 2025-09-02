@@ -59,7 +59,7 @@
                             </a>
                         </h5>
                         <div class="text-muted small mb-2">
-                            <span class="badge bg-light text-dark border-2 border-dark">MRN: {{ patient.mrn }}</span>
+                            <span class="badge bg-light text-dark border-2 border-dark">Chart#: {{ patient.mrn }}</span>
                         </div>
                         
                         <div class="patient-info">
@@ -94,13 +94,18 @@
                                 <span class="badge bg-info text-dark border-2 border-dark">
                                     <i class="bi bi-folder2-open"></i> {{ patient.cases.count }} case{{ patient.cases.count|pluralize }}
                                 </span>
+                                {% if patient.is_from_shared_case %}
+                                <span class="badge bg-warning text-dark border-2 border-dark ms-1" title="Patient from shared case">
+                                    <i class="bi bi-share"></i> Shared
+                                </span>
+                                {% endif %}
                             </div>
                             <div class="btn-group" role="group">
                                 <a href="{% url 'cases:patient_detail' patient.pk %}" 
                                    class="btn btn-sm btn-primary border-2" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                {% if user.profile.is_admin or user.is_staff %}
+                                {% if patient.is_own_organization %}
                                 <a href="{% url 'cases:patient_update' patient.pk %}" 
                                    class="btn btn-sm btn-secondary border-2" title="Edit">
                                     <i class="bi bi-pencil"></i>

@@ -86,8 +86,8 @@
                                     </span>
                                 {% endif %}
                                 {% if case.organization != user.profile.organization %}
-                                    <span class="badge bg-secondary ms-2" title="From {{ case.organization.name }}">
-                                        <i class="bi bi-building"></i> External
+                                    <span class="badge bg-info ms-2" title="From {{ case.organization.name }}">
+                                        <i class="bi bi-building"></i> {{ case.organization.name }}
                                     </span>
                                 {% endif %}
                             </a>
@@ -95,13 +95,13 @@
                         <td class="border-2 border-dark">
                             <div class="d-flex align-items-center">
                                 <div class="patient-avatar me-2">
-                                    {{ case.patient.first_name.0 }}{{ case.patient.last_name.0 }}
+                                     {{ case.patient.first_name.0 }}{{ case.patient.last_name.0 }}
                                 </div>
                                 <div>
                                     <a href="{% url 'cases:patient_detail' case.patient.pk %}" class="text-decoration-none fw-semibold">
                                         {{ case.patient.full_name }}
                                     </a>
-                                    <small class="d-block text-muted">MRN: {{ case.patient.mrn }}</small>
+                                    <small class="d-block text-muted">Chart #: {{ case.patient.mrn }}</small>
                                 </div>
                             </div>
                         </td>

@@ -17,6 +17,11 @@
                     <div class="text-muted">
                         <span class="badge bg-light text-dark border-2 border-dark me-2">Chart#: {{ patient.mrn }}</span>
                         <span class="badge bg-light text-dark border-2 border-dark">{{ patient.age }} years old</span>
+                        {% if patient.is_from_shared_case %}
+                        <span class="badge bg-warning text-dark border-2 border-dark ms-2" title="Patient from shared case">
+                            <i class="bi bi-share"></i> Shared Patient
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -24,12 +29,16 @@
                 <a href="{% url 'cases:patient_list' %}" class="btn btn-secondary border-2 border-dark me-2">
                     <i class="bi bi-arrow-left"></i> Back
                 </a>
+                {% if patient.is_own_organization %}
                 <a href="{% url 'cases:patient_update' patient.pk %}" class="btn btn-primary border-2 border-dark me-2">
                     <i class="bi bi-pencil"></i> Edit
                 </a>
+                {% endif %}
+                {% if patient.is_own_organization %}
                 <a href="{% url 'cases:case_create' %}?patient={{ patient.pk }}" class="btn btn-primary border-2 border-dark">
                     <i class="bi bi-plus-circle"></i> New Case
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -128,9 +137,11 @@
                 <h5 class="mb-0 text-primary">
                     <i class="bi bi-folder2-open"></i> Patient Cases ({{ cases.count }})
                 </h5>
+                {% if patient.is_own_organization %}
                 <a href="{% url 'cases:case_create' %}?patient={{ patient.pk }}" class="btn btn-sm btn-primary border-2 border-dark">
                     <i class="bi bi-plus-circle"></i> New Case
                 </a>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if cases %}
@@ -180,10 +191,12 @@
                                            class="btn btn-sm btn-primary border-2" title="View">
                                             <i class="bi bi-eye"></i>
                                         </a>
+                                        {% if patient.is_own_organization %}
                                         <a href="{% url 'cases:case_update' case.pk %}" 
                                            class="btn btn-sm btn-secondary border-2" title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </a>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -309,9 +322,11 @@
                 <a href="{% url 'cases:case_create' %}?patient={{ patient.pk }}" class="btn btn-primary border-2 border-dark">
                     <i class="bi bi-plus-circle"></i> Create New Case
                 </a>
+                {% if patient.is_own_organization %}
                 <a href="{% url 'cases:patient_update' patient.pk %}" class="btn btn-primary border-2 border-dark">
                     <i class="bi bi-pencil"></i> Edit Patient Info
                 </a>
+                {% endif %}
                 <button class="btn btn-info border-2 border-dark" onclick="window.print()">
                     <i class="bi bi-printer"></i> Print Patient Record
                 </button>

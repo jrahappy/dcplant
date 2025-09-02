@@ -326,9 +326,12 @@ def case_create(request):
 def case_update(request, pk):
     """Update an existing case"""
     profile = ensure_user_profile(request.user)
-    case = get_object_or_404(Case, pk=pk, organization=profile.organization)
-
-    # Check permissions
+    user_org = profile.organization
+    
+    # Get the case - must belong to user's organization (not shared)
+    case = get_object_or_404(Case, pk=pk, organization=user_org)
+    
+    # Check permissions - shared cases cannot be edited
     if not (
         request.user == case.created_by or profile.is_admin or request.user.is_staff
     ):
@@ -861,13 +864,18 @@ DCPlant System
 # Patient CRUD Views
 @login_required
 def patient_list(request):
-    """List all patients"""
+    """List all patients from user's organization and shared cases"""
     profile = ensure_user_profile(request.user)
     user_org = profile.organization
 
-    patients = Patient.objects.filter(organization=user_org)
-
-    # Search filter
+    # Build the query for patients
+    # Get patients from user's organization OR patients with shared cases
+    patients = Patient.objects.filter(
+        Q(organization=user_org) |
+        Q(cases__share_with_branches=user_org)
+    ).distinct()
+    
+    # Apply search filter
     search_query = request.GET.get("search", "")
     if search_query:
         patients = patients.filter(
@@ -882,6 +890,14 @@ def patient_list(request):
     paginator = Paginator(patients, 15)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+    
+    # Add a flag to each patient to indicate if they're from a shared case
+    for patient in page_obj:
+        patient.is_from_shared_case = (
+            patient.organization != user_org and
+            patient.cases.filter(share_with_branches=user_org).exists()
+        )
+        patient.is_own_organization = patient.organization == user_org
 
     # Get current theme and select appropriate template
     theme = request.session.get("theme", django_settings.DEFAULT_THEME)
@@ -900,15 +916,44 @@ def patient_list(request):
 
 @login_required
 def patient_detail(request, pk):
-    """Patient detail view"""
+    """Patient detail view - allows viewing patients from shared cases"""
     profile = ensure_user_profile(request.user)
-    patient = get_object_or_404(Patient, pk=pk, organization=profile.organization)
-    cases = patient.cases.select_related("category", "assigned_to")
+    user_org = profile.organization
+    
+    # Check if patient belongs to user's organization OR has cases shared with user's organization
+    try:
+        patient = Patient.objects.get(pk=pk)
+        
+        # Check if user has access to this patient
+        has_access = (
+            patient.organization == user_org or
+            patient.cases.filter(share_with_branches=user_org).exists()
+        )
+        
+        if not has_access:
+            messages.error(request, "You do not have permission to view this patient.")
+            return redirect("cases:patient_list")
+            
+    except Patient.DoesNotExist:
+        messages.error(request, "Patient not found.")
+        return redirect("cases:patient_list")
+    
+    # Get only cases that the user has access to
+    cases = patient.cases.filter(
+        Q(organization=user_org) | Q(share_with_branches=user_org)
+    ).distinct().select_related("category", "assigned_to")
 
     # Calculate statistics
     total_cases = cases.count()
     active_cases = cases.filter(status__in=["OPEN", "IN_PROGRESS"]).count()
     completed_cases = cases.filter(status="COMPLETED").count()
+    
+    # Add flags for template
+    patient.is_from_shared_case = (
+        patient.organization != user_org and
+        patient.cases.filter(share_with_branches=user_org).exists()
+    )
+    patient.is_own_organization = patient.organization == user_org
 
     # Get current theme and select appropriate template
     theme = request.session.get("theme", django_settings.DEFAULT_THEME)

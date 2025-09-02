@@ -151,7 +151,6 @@
                             <tr>
                                 <th class="border-2 border-dark">Case #</th>
                                 <th class="border-2 border-dark">Chief Complaint</th>
-                                <th class="border-2 border-dark">Category</th>
                                 <th class="border-2 border-dark">Status</th>
                                 <th class="border-2 border-dark">Priority</th>
                                 <th class="border-2 border-dark">Created</th>
@@ -162,18 +161,20 @@
                             {% for case in cases %}
                             <tr>
                                 <td class="border-2 border-dark">
-                                    <a href="{% url 'cases:case_detail' case.pk %}" class="text-decoration-none">
-                                        <span class="case-number">#{{ case.case_number }}</span>
-                                    </a>
-                                </td>
-                                <td class="border-2 border-dark">{{ case.chief_complaint|truncatechars:50 }}</td>
-                                <td class="border-2 border-dark">
-                                    {% if case.category %}
-                                        <span class="badge bg-info text-dark border-2 border-dark">{{ case.category.name }}</span>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
+                                    <span class="case-number">#{{ case.case_number }}</span>
+                                    {% if case.is_shared %}
+                                        <br>
+                                        <span class="badge bg-info text-dark" title="Shared case">
+                                            <i class="bi bi-share"></i>
+                                        </span>
+                                    {% endif %}
+                                    {% if case.organization != user.profile.organization %}
+                                        <span class="badge bg-info ms-2" title="From {{ case.organization.name }}">
+                                            <i class="bi bi-building"></i> {{ case.organization.name }}
+                                        </span>
                                     {% endif %}
                                 </td>
+                                <td class="border-2 border-dark">{{ case.chief_complaint|striptags|truncatechars:50 }}</td>
                                 <td class="border-2 border-dark">
                                     <span class="badge badge-{{ case.status|lower }} border-2 border-dark">
                                         {{ case.get_status_display }}
@@ -319,10 +320,10 @@
                 </h5>
             </div>
             <div class="card-body d-grid gap-2">
+                {% if patient.is_own_organization %}
                 <a href="{% url 'cases:case_create' %}?patient={{ patient.pk }}" class="btn btn-primary border-2 border-dark">
                     <i class="bi bi-plus-circle"></i> Create New Case
                 </a>
-                {% if patient.is_own_organization %}
                 <a href="{% url 'cases:patient_update' patient.pk %}" class="btn btn-primary border-2 border-dark">
                     <i class="bi bi-pencil"></i> Edit Patient Info
                 </a>
@@ -348,6 +349,11 @@
     font-size: 2rem;
     font-weight: 600;
     border: 3px solid var(--bs-dark);
+}
+
+.case-number {
+    color: #212529 !important;  /* Dark gray/black for better visibility */
+    font-weight: 600;
 }
 
 .info-group {

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.core.paginator import Paginator
+from django.core.files.storage import default_storage
 from django.http import JsonResponse, HttpResponseForbidden, FileResponse, HttpResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -30,6 +31,7 @@ from .forms import (
 from .utils import ensure_user_profile
 import os
 import pydicom
+from pydicom.pixel_data_handlers.util import apply_voi_lut
 from PIL import Image as PILImage
 import numpy as np
 import io
@@ -52,7 +54,6 @@ def case_list(request):
 
     # Get cases from user's organization AND shared cases from other organizations
     # Show draft cases only to their creators
-    from django.db.models import Q
 
     cases_filter = Q(organization=user_org) | Q(share_with_branches=user_org)
     # Only show draft cases to their creators
@@ -149,7 +150,6 @@ def case_detail(request, pk):
 
     # Allow viewing if case belongs to user's org OR is shared with user's org
     # Draft cases can only be viewed by their creators
-    from django.db.models import Q
 
     case_filter = Q(pk=pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)
@@ -175,7 +175,6 @@ def case_detail(request, pk):
     )
 
     # Get related data with visibility filtering
-    from django.db.models import Q
 
     # Build comment visibility filter
     comment_filter = Q()
@@ -204,7 +203,6 @@ def case_detail(request, pk):
     activities = case.activities.select_related("user")[:20]
 
     # Get opinions (non-deleted) - show draft opinions only to their authors
-    from django.db.models import Q
 
     opinions_filter = Q(is_deleted=False)
     opinions_filter &= Q(status="PUBLISHED") | Q(author=request.user)
@@ -327,10 +325,10 @@ def case_update(request, pk):
     """Update an existing case"""
     profile = ensure_user_profile(request.user)
     user_org = profile.organization
-    
+
     # Get the case - must belong to user's organization (not shared)
     case = get_object_or_404(Case, pk=pk, organization=user_org)
-    
+
     # Check permissions - shared cases cannot be edited
     if not (
         request.user == case.created_by or profile.is_admin or request.user.is_staff
@@ -507,7 +505,6 @@ def add_opinion(request, pk):
         case = get_object_or_404(Case, pk=pk)
     else:
         # Check if case belongs to user's org or is shared with them
-        from django.db.models import Q
 
         case = get_object_or_404(
             Case.objects.filter(
@@ -871,10 +868,9 @@ def patient_list(request):
     # Build the query for patients
     # Get patients from user's organization OR patients with shared cases
     patients = Patient.objects.filter(
-        Q(organization=user_org) |
-        Q(cases__share_with_branches=user_org)
+        Q(organization=user_org) | Q(cases__share_with_branches=user_org)
     ).distinct()
-    
+
     # Apply search filter
     search_query = request.GET.get("search", "")
     if search_query:
@@ -890,12 +886,12 @@ def patient_list(request):
     paginator = Paginator(patients, 15)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    
+
     # Add a flag to each patient to indicate if they're from a shared case
     for patient in page_obj:
         patient.is_from_shared_case = (
-            patient.organization != user_org and
-            patient.cases.filter(share_with_branches=user_org).exists()
+            patient.organization != user_org
+            and patient.cases.filter(share_with_branches=user_org).exists()
         )
         patient.is_own_organization = patient.organization == user_org
 
@@ -919,39 +915,41 @@ def patient_detail(request, pk):
     """Patient detail view - allows viewing patients from shared cases"""
     profile = ensure_user_profile(request.user)
     user_org = profile.organization
-    
+
     # Check if patient belongs to user's organization OR has cases shared with user's organization
     try:
         patient = Patient.objects.get(pk=pk)
-        
+
         # Check if user has access to this patient
         has_access = (
-            patient.organization == user_org or
-            patient.cases.filter(share_with_branches=user_org).exists()
+            patient.organization == user_org
+            or patient.cases.filter(share_with_branches=user_org).exists()
         )
-        
+
         if not has_access:
             messages.error(request, "You do not have permission to view this patient.")
             return redirect("cases:patient_list")
-            
+
     except Patient.DoesNotExist:
         messages.error(request, "Patient not found.")
         return redirect("cases:patient_list")
-    
+
     # Get only cases that the user has access to
-    cases = patient.cases.filter(
-        Q(organization=user_org) | Q(share_with_branches=user_org)
-    ).distinct().select_related("category", "assigned_to")
+    cases = (
+        patient.cases.filter(Q(organization=user_org) | Q(share_with_branches=user_org))
+        .distinct()
+        .select_related("category", "assigned_to")
+    )
 
     # Calculate statistics
     total_cases = cases.count()
     active_cases = cases.filter(status__in=["OPEN", "IN_PROGRESS"]).count()
     completed_cases = cases.filter(status="COMPLETED").count()
-    
+
     # Add flags for template
     patient.is_from_shared_case = (
-        patient.organization != user_org and
-        patient.cases.filter(share_with_branches=user_org).exists()
+        patient.organization != user_org
+        and patient.cases.filter(share_with_branches=user_org).exists()
     )
     patient.is_own_organization = patient.organization == user_org
 
@@ -1074,7 +1072,6 @@ def comment_add(request, case_pk):
     user_org = profile.organization
 
     # Allow commenting on cases from user's org OR shared with user's org
-    from django.db.models import Q
 
     case = get_object_or_404(
         Case.objects.filter(
@@ -1134,7 +1131,6 @@ def image_upload(request, case_pk):
     user_org = profile.organization
 
     # Allow upload if case belongs to user's org OR is shared with user's org
-    from django.db.models import Q
 
     case_filter = Q(pk=case_pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)
@@ -1366,7 +1362,6 @@ def image_list(request, case_pk):
     user_org = profile.organization
 
     # Allow access if case belongs to user's org OR is shared with user's org
-    from django.db.models import Q
 
     case_filter = Q(pk=case_pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)
@@ -1491,66 +1486,74 @@ def dicom_viewer(request, pk):
 
 @login_required
 def dicom_item_thumbnail(request, pk):
-    """Convert individual DICOM item to full-size JPG image"""
     profile = ensure_user_profile(request.user)
     item = get_object_or_404(CaseImageItem, pk=pk)
 
-    # Check permissions - allow access if case belongs to user's org OR is shared with user's org
+    # 권한
     user_org = profile.organization
     case = item.caseimage.case
     has_access = (case.organization == user_org) or (
         case.is_shared and user_org in case.share_with_branches.all()
     )
-
     if not has_access:
         return HttpResponseForbidden("You don't have permission to view this image.")
-
     if not item.is_dicom:
         return HttpResponse("Not a DICOM file", status=404)
 
     try:
-        # Read DICOM file
-        dicom_path = item.image.path
-        dicom_data = pydicom.dcmread(dicom_path)
+        # ✅ 원격/로컬 스토리지 모두 동작: 파일 객체로 읽기
+        with default_storage.open(item.image.name, "rb") as fh:
+            ds = pydicom.dcmread(fh, force=True)  # 일부 파일은 force가 필요할 수 있음
 
-        # Convert to PIL Image
-        pixel_array = dicom_data.pixel_array
+        # 픽셀 배열
+        arr = ds.pixel_array  # (압축이면 pylibjpeg/gdcm 설치 필요)
+        if arr.ndim == 3 and arr.shape[0] > 1:
+            # 멀티프레임이면 첫 프레임 사용(원하면 인덱싱 로직 조정)
+            arr = arr[0]
 
-        # Normalize the image
-        if hasattr(dicom_data, "RescaleSlope") and hasattr(
-            dicom_data, "RescaleIntercept"
-        ):
-            pixel_array = (
-                pixel_array * dicom_data.RescaleSlope + dicom_data.RescaleIntercept
-            )
+        # VOI LUT/Windowing 적용(있을 때)
+        try:
+            arr = apply_voi_lut(arr, ds)
+        except Exception:
+            pass
 
-        # Convert to 8-bit
-        pixel_array = (
-            (pixel_array - pixel_array.min())
-            / (pixel_array.max() - pixel_array.min())
-            * 255
-        ).astype("uint8")
+        # CT 등 Rescale 보정
+        slope = float(getattr(ds, "RescaleSlope", 1.0))
+        intercept = float(getattr(ds, "RescaleIntercept", 0.0))
+        if slope != 1.0 or intercept != 0.0:
+            arr = arr.astype(np.float32) * slope + intercept
 
-        # Create PIL Image
-        pil_image = PILImage.fromarray(pixel_array)
+        # MONOCHROME1은 흑백 반전
+        if getattr(ds, "PhotometricInterpretation", "").upper() == "MONOCHROME1":
+            arr = arr.max() - arr
 
-        # Don't create thumbnail - show full image
-        # pil_image.thumbnail((200, 200), PILImage.Resampling.LANCZOS)
+        # 0~255 정규화 (0 division 방지)
+        arr = arr.astype(np.float32)
+        arr -= arr.min()
+        peak = arr.max()
+        if peak > 0:
+            arr = arr / peak
+        arr = (arr * 255).astype(np.uint8)
 
-        # Convert to RGB if grayscale
-        if pil_image.mode != "RGB":
-            pil_image = pil_image.convert("RGB")
+        img = PILImage.fromarray(arr)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
 
-        # Save to bytes with high quality
-        buffer = io.BytesIO()
-        pil_image.save(buffer, format="JPEG", quality=95)
-        buffer.seek(0)
+        # 필요 시 썸네일 크기 지정(주석 해제)
+        # img.thumbnail((512, 512), PILImage.Resampling.LANCZOS)
 
-        return HttpResponse(buffer, content_type="image/jpeg")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=90, optimize=True)
+        buf.seek(0)
+        return FileResponse(buf, content_type="image/jpeg")
 
     except Exception as e:
-        print(f"Error converting DICOM to thumbnail: {e}")
-        # Return a placeholder image or error image
+        # 서버 로그로 남기기
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "DICOM to JPEG failed (item %s): %s", pk, e
+        )
         return HttpResponse("Error processing DICOM", status=500)
 
 
@@ -1629,7 +1632,6 @@ def dicom_series_viewer(request, pk):
     user_org = profile.organization
 
     # Allow viewing if case belongs to user's org OR is shared with user's org
-    from django.db.models import Q
 
     case_filter = Q(pk=pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)
@@ -1851,7 +1853,6 @@ def download_dicom_series(request, pk):
     user_org = profile.organization
 
     # Allow downloading if case belongs to user's org OR is shared with user's org
-    from django.db.models import Q
 
     case_filter = Q(pk=pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)
@@ -1931,7 +1932,6 @@ def download_all_images(request, pk):
     user_org = profile.organization
 
     # Allow downloading if case belongs to user's org OR is shared with user's org
-    from django.db.models import Q
 
     case_filter = Q(pk=pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)

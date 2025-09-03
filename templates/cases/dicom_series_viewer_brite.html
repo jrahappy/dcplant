@@ -515,8 +515,13 @@ const totalSlices = {{ total_slices }};
 
 // Convert URLs to Cornerstone image IDs
 imageUrls.forEach(url => {
-    // Create full URL
-    const fullUrl = window.location.origin + url;
+    // Create full URL - check if URL is already absolute
+    let fullUrl;
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
+        fullUrl = url;
+    } else {
+        fullUrl = window.location.origin + url;
+    }
     const imageId = 'wadouri:' + fullUrl;
     stack.imageIds.push(imageId);
 });

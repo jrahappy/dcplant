@@ -25,12 +25,12 @@ class CommentInline(admin.TabularInline):
     readonly_fields = ("created_at",)
 
 
-class CaseActivityInline(admin.TabularInline):
-    model = CaseActivity
-    extra = 0
-    fields = ("activity_type", "user", "description", "created_at")
-    readonly_fields = ("activity_type", "user", "description", "created_at")
-    # can_delete = False
+# class CaseActivityInline(admin.TabularInline):
+#     model = CaseActivity
+#     extra = 0
+#     fields = ("activity_type", "user", "description", "created_at")
+#     readonly_fields = ("activity_type", "user", "description", "created_at")
+#     # can_delete = False
 
 
 @admin.register(Patient)
@@ -124,7 +124,7 @@ class CaseAdmin(admin.ModelAdmin):
         "diagnosis",
     )
     readonly_fields = ("case_number", "created_at", "updated_at", "completed_at")
-    inlines = [CaseImageInline, CommentInline, CaseActivityInline]
+    inlines = [CaseImageInline, CommentInline]
     filter_horizontal = ("share_with_branches",)
     raw_id_fields = ("patient", "created_by", "assigned_to")
 
@@ -170,23 +170,23 @@ class CaseAdmin(admin.ModelAdmin):
             obj.organization = request.user.profile.organization
 
         # Log activity
-        if change:
-            CaseActivity.objects.create(
-                case=obj,
-                user=request.user,
-                activity_type="UPDATED",
-                description=f"Case updated via admin panel",
-            )
-        else:
-            obj.save()
-            CaseActivity.objects.create(
-                case=obj,
-                user=request.user,
-                activity_type="CREATED",
-                description=f"Case created via admin panel",
-            )
-            return
-
+        # if change:
+        #     CaseActivity.objects.create(
+        #         case=obj,
+        #         user=request.user,
+        #         activity_type="UPDATED",
+        #         description=f"Case updated via admin panel",
+        #     )
+        # else:
+        #     obj.save()
+        #     CaseActivity.objects.create(
+        #         case=obj,
+        #         user=request.user,
+        #         activity_type="CREATED",
+        #         description=f"Case created via admin panel",
+        #     )
+        #     return
+        obj.save()
         super().save_model(request, obj, form, change)
 
     def patient_name(self, obj):
@@ -273,12 +273,12 @@ class CaseImageAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
         # Log activity
-        CaseActivity.objects.create(
-            case=obj.case,
-            user=request.user,
-            activity_type="IMAGE_ADDED" if not change else "UPDATED",
-            description=f'Image "{obj.title}" {"added" if not change else "updated"}',
-        )
+        # CaseActivity.objects.create(
+        #     case=obj.case,
+        #     user=request.user,
+        #     activity_type="IMAGE_ADDED" if not change else "UPDATED",
+        #     description=f'Image "{obj.title}" {"added" if not change else "updated"}',
+        # )
 
 
 @admin.register(CaseImageItem)
@@ -328,45 +328,46 @@ class CommentAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
         # Log activity
-        if not change:
-            CaseActivity.objects.create(
-                case=obj.case,
-                user=request.user,
-                activity_type="COMMENTED",
-                description=f"Comment added",
-            )
+        # if not change:
+        #     CaseActivity.objects.create(
+        #         case=obj.case,
+        #         user=request.user,
+        #         activity_type="COMMENTED",
+        #         description=f"Comment added",
+        #     )
 
 
-@admin.register(CaseActivity)
-class CaseActivityAdmin(admin.ModelAdmin):
-    list_display = (
-        "case",
-        "activity_type",
-        "user",
-        "description",
-        "ip_address",
-        "created_at",
-    )
-    list_filter = ("activity_type", "created_at")
-    search_fields = ("case__case_number", "user__username", "description")
-    # Remove readonly_fields to allow deletion checkboxes to appear
-    # readonly_fields = (
-    #     "case",
-    #     "user",
-    #     "activity_type",
-    #     "description",
-    #     "metadata",
-    #     "ip_address",
-    #     "created_at",
-    # )
+# @admin.register(CaseActivity)
+admin.register(CaseActivity)
+# class CaseActivityAdmin(admin.ModelAdmin):
+#     list_display = (
+#         "case",
+#         "activity_type",
+#         "user",
+#         "description",
+#         "ip_address",
+#         "created_at",
+#     )
+#     list_filter = ("activity_type", "created_at")
+#     search_fields = ("case__case_number", "user__username", "description")
+# Remove readonly_fields to allow deletion checkboxes to appear
+# readonly_fields = (
+#     "case",
+#     "user",
+#     "activity_type",
+#     "description",
+#     "metadata",
+#     "ip_address",
+#     "created_at",
+# )
 
-    def has_add_permission(self, request):
-        return False
+# def has_add_permission(self, request):
+#     return False
 
-    def has_delete_permission(self, request, obj=None):
-        # Allow deletion for cascade operations
-        return True
-    
-    def has_change_permission(self, request, obj=None):
-        # Optionally allow editing
-        return True
+# def has_delete_permission(self, request, obj=None):
+#     # Allow deletion for cascade operations
+#     return True
+
+# def has_change_permission(self, request, obj=None):
+#     # Optionally allow editing
+#     return True

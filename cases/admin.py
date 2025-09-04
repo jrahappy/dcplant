@@ -364,5 +364,9 @@ class CaseActivityAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        # return request.user.is_superuser
+        # Allow deletion for cascade operations
+        return True
+    
+    def has_change_permission(self, request, obj=None):
+        # Optionally allow editing
         return True

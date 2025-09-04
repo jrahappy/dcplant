@@ -1,6 +1,14 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Patient, Category, Case, CaseImage, CaseImageItem, Comment, CaseActivity
+from .models import (
+    Patient,
+    Category,
+    Case,
+    CaseImage,
+    CaseImageItem,
+    Comment,
+    CaseActivity,
+)
 
 
 class CaseImageInline(admin.TabularInline):
@@ -22,7 +30,7 @@ class CaseActivityInline(admin.TabularInline):
     extra = 0
     fields = ("activity_type", "user", "description", "created_at")
     readonly_fields = ("activity_type", "user", "description", "created_at")
-    can_delete = False
+    # can_delete = False
 
 
 @admin.register(Patient)
@@ -230,6 +238,7 @@ class CaseImageItemInline(admin.TabularInline):
 
     def filename(self, obj):
         return obj.filename if obj else ""
+
     filename.short_description = "Filename"
 
 
@@ -247,13 +256,15 @@ class CaseImageAdmin(admin.ModelAdmin):
     readonly_fields = ("uploaded_by", "created_at", "updated_at", "item_count")
     raw_id_fields = ("case",)
     inlines = [CaseImageItemInline]
-    
+
     def case_number(self, obj):
         return obj.case.case_number if obj.case else ""
+
     case_number.short_description = "Case Number"
-    
+
     def item_count(self, obj):
         return obj.items.count()
+
     item_count.short_description = "Image Count"
 
     def save_model(self, request, obj, form, change):
@@ -283,17 +294,24 @@ class CaseImageItemAdmin(admin.ModelAdmin):
     search_fields = ("caseimage__title", "caseimage__case__case_number")
     readonly_fields = ("filename",)
     raw_id_fields = ("caseimage",)
-    
+
     def filename(self, obj):
         return obj.filename
+
     filename.short_description = "Filename"
-    
+
     def caseimage_title(self, obj):
         return obj.caseimage.title if obj.caseimage else ""
+
     caseimage_title.short_description = "Image Group"
-    
+
     def case_number(self, obj):
-        return obj.caseimage.case.case_number if obj.caseimage and obj.caseimage.case else ""
+        return (
+            obj.caseimage.case.case_number
+            if obj.caseimage and obj.caseimage.case
+            else ""
+        )
+
     case_number.short_description = "Case Number"
 
 
@@ -345,4 +363,5 @@ class CaseActivityAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
+        # return request.user.is_superuser
+        return True

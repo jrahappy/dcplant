@@ -14,7 +14,7 @@ from .models import (
 class CaseImageInline(admin.TabularInline):
     model = CaseImage
     extra = 0
-    fields = ("image", "image_type", "title", "is_primary", "is_deidentified")
+    fields = ("title", "description", "uploaded_by", "created_at")
     readonly_fields = ("uploaded_by", "created_at")
 
 

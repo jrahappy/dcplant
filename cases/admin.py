@@ -349,15 +349,16 @@ class CaseActivityAdmin(admin.ModelAdmin):
     )
     list_filter = ("activity_type", "created_at")
     search_fields = ("case__case_number", "user__username", "description")
-    readonly_fields = (
-        "case",
-        "user",
-        "activity_type",
-        "description",
-        "metadata",
-        "ip_address",
-        "created_at",
-    )
+    # Remove readonly_fields to allow deletion checkboxes to appear
+    # readonly_fields = (
+    #     "case",
+    #     "user",
+    #     "activity_type",
+    #     "description",
+    #     "metadata",
+    #     "ip_address",
+    #     "created_at",
+    # )
 
     def has_add_permission(self, request):
         return False

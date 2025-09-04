@@ -276,6 +276,14 @@
                     <span>Users</span>
                 </a>
             </li>
+            {% if user.username == 'william' %}
+            <li class="nav-item">
+                <a href="{% url 'cases:delete_all_activity_logs' %}" class="nav-link">
+                    <i class="bi bi-people"></i>
+                    <span>Delete Activity Logs</span>
+                </a>
+            </li>
+            {% endif %}
             
             <li class="nav-item">
                 <a href="/admin/" target="_blank" class="nav-link">

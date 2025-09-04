@@ -45,6 +45,19 @@ from django.utils.html import strip_tags
 from accounts.models import UserProfile
 
 
+# temporary logger for this module
+def delete_all_activity_logs(request):
+    # Only superuser can delete activities
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("You don't have permission to delete activities.")
+
+    # Delete all activities (logs)
+    deleted_count, _ = CaseActivity.objects.all().delete()
+
+    messages.success(request, f"Deleted {deleted_count} case activities (logs).")
+    return JsonResponse({"deleted_count": deleted_count})
+
+
 # Case CRUD Views
 @login_required
 def case_list(request):

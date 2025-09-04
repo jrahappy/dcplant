@@ -18,8 +18,8 @@
                         <span class="badge bg-light text-dark border-2 border-dark me-2">Chart#: {{ patient.mrn }}</span>
                         <span class="badge bg-light text-dark border-2 border-dark">{{ patient.age }} years old</span>
                         {% if patient.is_from_shared_case %}
-                        <span class="badge bg-warning text-dark border-2 border-dark ms-2" title="Patient from shared case">
-                            <i class="bi bi-share"></i> Shared Patient
+                        <span class="badge bg-warning text-dark border-2 border-dark ms-2" title="Patient from {{ patient.shared_from_organization }}">
+                            <i class="bi bi-share"></i> From {{ patient.shared_from_organization }}
                         </span>
                         {% endif %}
                     </div>
@@ -71,6 +71,15 @@
                                 {% endif %}
                             </p>
                         </div>
+                        
+                        {% if patient.is_from_shared_case %}
+                        <div class="info-group mb-3">
+                            <label class="text-muted small text-uppercase">Organization</label>
+                            <p class="mb-0 fw-semibold">
+                                <i class="bi bi-building text-primary"></i> {{ patient.shared_from_organization }}
+                            </p>
+                        </div>
+                        {% endif %}
                         
                     </div>
                     

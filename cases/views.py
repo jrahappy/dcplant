@@ -907,6 +907,11 @@ def patient_list(request):
             and patient.cases.filter(share_with_branches=user_org).exists()
         )
         patient.is_own_organization = patient.organization == user_org
+        # Add organization name for shared patients
+        if patient.is_from_shared_case:
+            patient.shared_from_organization = patient.organization.name
+        else:
+            patient.shared_from_organization = None
 
     # Get current theme and select appropriate template
     theme = request.session.get("theme", django_settings.DEFAULT_THEME)
@@ -965,6 +970,11 @@ def patient_detail(request, pk):
         and patient.cases.filter(share_with_branches=user_org).exists()
     )
     patient.is_own_organization = patient.organization == user_org
+    # Add organization name for shared patients
+    if patient.is_from_shared_case:
+        patient.shared_from_organization = patient.organization.name
+    else:
+        patient.shared_from_organization = None
 
     # Get current theme and select appropriate template
     theme = request.session.get("theme", django_settings.DEFAULT_THEME)

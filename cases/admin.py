@@ -337,37 +337,26 @@ class CommentAdmin(admin.ModelAdmin):
         #     )
 
 
-# @admin.register(CaseActivity)
-admin.register(CaseActivity)
-# class CaseActivityAdmin(admin.ModelAdmin):
-#     list_display = (
-#         "case",
-#         "activity_type",
-#         "user",
-#         "description",
-#         "ip_address",
-#         "created_at",
-#     )
-#     list_filter = ("activity_type", "created_at")
-#     search_fields = ("case__case_number", "user__username", "description")
-# Remove readonly_fields to allow deletion checkboxes to appear
-# readonly_fields = (
-#     "case",
-#     "user",
-#     "activity_type",
-#     "description",
-#     "metadata",
-#     "ip_address",
-#     "created_at",
-# )
+@admin.register(CaseActivity)
+class CaseActivityAdmin(admin.ModelAdmin):
+    list_display = (
+        "case",
+        "activity_type",
+        "user",
+        "description",
+        "ip_address",
+        "created_at",
+    )
+    list_filter = ("activity_type", "created_at")
+    search_fields = ("case__case_number", "user__username", "description")
 
-# def has_add_permission(self, request):
-#     return False
+    # def has_add_permission(self, request):
+    #     return False
 
-# def has_delete_permission(self, request, obj=None):
-#     # Allow deletion for cascade operations
-#     return True
+    # def has_delete_permission(self, request, obj=None):
+    #     # Allow deletion for cascade operations
+    #     return True
 
-# def has_change_permission(self, request, obj=None):
-#     # Optionally allow editing
-#     return True
+    # def has_change_permission(self, request, obj=None):
+    #     # Optionally allow editing
+    #     return True

@@ -260,6 +260,10 @@ def case_detail(request, pk):
         and (request.user == case.created_by or request.user == request.user.is_staff)
     )  # Others only if no other opinions
 
+    print(
+        f"Can delete case: {can_delete_case}, Has other opinions: {has_other_opinions}"
+    )
+
     context = {
         "case": case,
         "comments": comments,

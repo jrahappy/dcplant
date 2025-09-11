@@ -625,7 +625,7 @@
                         </button>
                     </form> -->
                     <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
-                        <i class="bi bi-share-fill"></i> Manage Sharing
+                        <i class="bi bi-share-fill"></i> Manage Sharing.
                     </a>
                     {% else %}
                         {% if case.status == 'DRAFT' %}
@@ -643,11 +643,11 @@
                     </a>
                     {% if can_delete_case %}
                     <button type="button" class="btn btn-danger border-2 border-dark" data-bs-toggle="modal" data-bs-target="#deleteCaseModal">
-                        <i class="bi bi-trash"></i> Delete Case
+                        <i class="bi bi-trash" data-delete="{{ can_delete_case }}"></i> Delete Case
                     </button>
                     {% else %}
                     <button type="button" class="btn btn-danger border-2 border-dark" disabled title="Case has opinions from other users. Only HQ superuser can delete.">
-                        <i class="bi bi-trash"></i> Delete Case
+                        <i class="bi bi-trash" data-delete="{{ can_delete_case }}"></i> Delete Case
                     </button>
                     {% endif %}
                     {% endif %}

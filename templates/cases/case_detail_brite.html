@@ -606,50 +606,42 @@
         <div class="card border-2 mb-4 sticky-top" style="top: 20px; z-index: 10;">
             <div class="card-header bg-primary text-dark border-2 border-dark">
                 <h5 class="mb-0">
-                    <i class="bi bi-lightning"></i> Quick Actions
+                    <i class="bi bi-lightning"></i> Quick Actions {{ user.is_superuser }}
                 </h5>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
                     <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary border-2 border-dark">
-                        <i class="bi bi-upload"></i> Upload Image 
+                        <i class="bi bi-upload"></i> Upload Images
                     </a>
-                    {% if user == case.created_by or user.profile.is_admin %}
-                    {% if case.is_shared %}
-                    <!-- <form method="post" action="{% url 'cases:case_share' case.pk %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" name="cancel_sharing" value="1" 
-                                class="btn btn-danger border-2 border-dark"
-                                onclick="return confirm('Cancel sharing for this case?')">
-                            <i class="bi bi-x-circle"></i> Cancel Sharing
-                        </button>
-                    </form> -->
-                    <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
-                        <i class="bi bi-share-fill"></i> Manage Sharing.
-                    </a>
-                    {% else %}
-                        {% if case.status == 'DRAFT' %}
-                        <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-outline-secondary border-2 border-dark disabled ">
-                            <i class="bi bi-share"></i> Share Case
-                        </a>
+                    {% if user == case.created_by  %}
+                        {% if case.is_shared %}
+                            <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
+                                <i class="bi bi-share-fill"></i> Manage Sharing.
+                            </a>
                         {% else %}
-                        <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
-                            <i class="bi bi-share"></i> Share Case
-                        </a>
+                            {% if case.status == 'DRAFT' %}
+                                <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-outline-secondary border-2 border-dark disabled ">
+                                    <i class="bi bi-share"></i> Share Case
+                                </a>
+                            {% else %}
+                                <a href="{% url 'cases:case_share' case.pk %}" class="btn btn-info border-2 border-dark">
+                                    <i class="bi bi-share"></i> Share Case
+                                </a>
+                            {% endif %}
                         {% endif %}
-                    {% endif %}
-                    <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-warning border-2 border-dark">
-                        <i class="bi bi-pencil-square"></i> Edit Case
-                    </a>
-                    {% if can_delete_case %}
-                    <button type="button" class="btn btn-danger border-2 border-dark" data-bs-toggle="modal" data-bs-target="#deleteCaseModal">
-                        <i class="bi bi-trash" data-delete="{{ can_delete_case }}"></i> Delete Case
-                    </button>
-                    {% else %}
-                    <button type="button" class="btn btn-danger border-2 border-dark" disabled title="Case has opinions from other users. Only HQ superuser can delete.">
-                        <i class="bi bi-trash" data-delete="{{ can_delete_case }}"></i> Delete Case
-                    </button>
-                    {% endif %}
+                        <a href="{% url 'cases:case_update' case.pk %}" class="btn btn-warning border-2 border-dark">
+                            <i class="bi bi-pencil-square"></i> Edit Case
+                        </a>
+                        {% if can_delete_case %}
+                            <button type="button" class="btn btn-danger border-2 border-dark" data-bs-toggle="modal" data-bs-target="#deleteCaseModal">
+                                <i class="bi bi-trash" data-delete="{{ can_delete_case }}"></i> Delete Case
+                            </button>
+                        {% else %}
+                            <button type="button" class="btn btn-danger border-2 border-dark" disabled title="Case has opinions from other users. Only HQ superuser can delete.">
+                                <i class="bi bi-trash" data-delete="{{ can_delete_case }}"></i> Delete Case 
+                            </button>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>

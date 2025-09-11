@@ -158,22 +158,22 @@
                                 <div class="btn-group btn-group-sm w-100" role="group">
                                     {% if item.is_dicom %}
                                         <button type="button"
-                                                onclick="showThumbnail('{% url 'cases:dicom_item_thumbnail' item.pk %}', 'DICOM')"
+                                                onclick="showThumbnail('{% url 'cases:dicom_item_thumbnail' item.pk %}', 'DICOM', {{ item.pk }})"
                                                 class="btn btn-sm btn-primary py-1"
                                                 title="View Thumbnail">
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     {% elif item.image_type not in "PDF,ZIP" %}
                                         <button type="button"
-                                                onclick="showThumbnail('{{ item.image.url }}', '{{ item.image_type }}')"
+                                                onclick="showThumbnail('{{ item.image.url }}', '{{ item.image_type }}', {{ item.pk }})"
                                                 class="btn btn-sm btn-primary py-1"
                                                 title="View Thumbnail">
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     {% endif %}
-                                    <a href="{{ item.image.url }}" 
-                                       download 
-                                       class="btn btn-sm btn-success py-1">
+                                    <a href="{% url 'cases:download_image_item' item.pk %}" 
+                                       class="btn btn-sm btn-success py-1"
+                                       title="Download">
                                         <i class="bi bi-download"></i>
                                     </a>
                                 </div>
@@ -252,12 +252,18 @@
 {% block extra_js %}
 <script>
 // Function to show thumbnail in modal
-function showThumbnail(imageUrl, imageType) {
+function showThumbnail(imageUrl, imageType, itemId) {
     // Set the thumbnail image source
     document.getElementById('thumbnailImage').src = imageUrl;
     
-    // Set download and view full links
-    document.getElementById('thumbnailDownload').href = imageUrl;
+    // Set download link to use the server-side download endpoint
+    if (itemId) {
+        document.getElementById('thumbnailDownload').href = `/cases/image-item/${itemId}/download/`;
+    } else {
+        document.getElementById('thumbnailDownload').href = imageUrl;
+    }
+    
+    // Set view full link
     document.getElementById('thumbnailViewFull').href = imageUrl;
     
     // Show the modal

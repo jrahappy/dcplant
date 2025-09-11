@@ -41,6 +41,11 @@ urlpatterns = [
         name="dicom_item_thumbnail",
     ),
     path(
+        "image-item/<int:pk>/download/",
+        views.download_image_item,
+        name="download_image_item",
+    ),
+    path(
         "case/<int:pk>/dicom-series/",
         views.dicom_series_viewer,
         name="dicom_series_viewer",

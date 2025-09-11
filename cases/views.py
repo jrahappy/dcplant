@@ -260,10 +260,6 @@ def case_detail(request, pk):
         and (request.user == case.created_by or request.user == request.user.is_staff)
     )  # Others only if no other opinions
 
-    # print(
-    #     f"Can delete case: {can_delete_case}, Has other opinions: {has_other_opinions}"
-    # )
-
     context = {
         "case": case,
         "comments": comments,
@@ -2068,6 +2064,74 @@ Image Files:
         file_size = os.path.getsize(zip_path)
         response["Content-Length"] = str(file_size)
         return response
+
+
+@login_required
+def download_image_item(request, pk):
+    """Force download of an individual image item"""
+    profile = ensure_user_profile(request.user)
+    user_org = profile.organization
+    
+    # Get the image item
+    image_item = get_object_or_404(CaseImageItem, pk=pk)
+    
+    # Check permissions - ensure the case belongs to or is shared with user's org
+    case = image_item.caseimage.case
+    case_filter = (
+        Q(organization=user_org) | Q(share_with_branches=user_org)
+    )
+    if not Case.objects.filter(pk=case.pk).filter(case_filter).exists():
+        raise Http404("Image not found")
+    
+    # Check if file exists
+    if not image_item.image:
+        raise Http404("File not found")
+    
+    # Get the filename using the model's property
+    filename = image_item.filename
+    
+    # Fallback if filename is empty
+    if not filename:
+        filename = f"image_{image_item.pk}"
+        # Add extension based on image type
+        ext_map = {
+            'PHOTO': '.jpg',
+            'PDF': '.pdf',
+            'ZIP': '.zip',
+            'PANO': '.jpg',
+            'CBCT': '.dcm',
+            'IOXray': '.jpg',
+            '3DScan': '.stl',
+            'OTHER': '.jpg',
+        }
+        ext = ext_map.get(image_item.image_type, '.jpg')
+        filename += ext
+    
+    # Open file for reading directly from storage
+    file_handle = image_item.image.open('rb')
+    
+    # Determine content type
+    content_type = 'application/octet-stream'  # Default to force download
+    
+    # Create response with proper headers to force download
+    # Pass filename directly to FileResponse
+    response = FileResponse(
+        file_handle,
+        content_type=content_type,
+        as_attachment=True,
+        filename=filename  # Pass filename here
+    )
+    
+    # Log activity
+    CaseActivity.objects.create(
+        case=case,
+        user=request.user,
+        activity_type="DOWNLOADED",
+        description=f"Downloaded image: {filename}",
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+    
+    return response
 
 
 @login_required

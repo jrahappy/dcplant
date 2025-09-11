@@ -612,7 +612,7 @@
             <div class="card-body">
                 <div class="d-grid gap-2">
                     <a href="{% url 'cases:image_upload' case.pk %}" class="btn btn-primary border-2 border-dark">
-                        <i class="bi bi-upload"></i> Upload Images
+                        <i class="bi bi-upload"></i> Upload Image 
                     </a>
                     {% if user == case.created_by or user.profile.is_admin %}
                     {% if case.is_shared %}

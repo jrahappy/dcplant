@@ -29,12 +29,15 @@ from .forms import (
     MultipleImageUploadForm,
 )
 from .utils import ensure_user_profile
+from .tasks import process_image_upload
 import os
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 from PIL import Image as PILImage
 import numpy as np
 import io
+import base64
+import json
 import zipfile
 import tempfile
 import shutil
@@ -1375,6 +1378,100 @@ def image_upload(request, case_pk):
         template = "cases/image_upload.html"
 
     return render(request, template, context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def image_upload_async(request, case_pk):
+    """Handle asynchronous image uploads using Celery"""
+    profile = ensure_user_profile(request.user)
+    user_org = profile.organization
+
+    # Allow upload if case belongs to user's org OR is shared with user's org
+    case_filter = Q(pk=case_pk) & (
+        Q(organization=user_org) | Q(share_with_branches=user_org)
+    )
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
+
+    try:
+        # Get files from request
+        files = request.FILES.getlist('images')
+        if not files:
+            return JsonResponse({'error': 'No files provided'}, status=400)
+
+        # Prepare file data for Celery task
+        files_data = []
+        for file in files:
+            # Read file content and encode as base64
+            file_content = file.read()
+            file_data = {
+                'name': file.name,
+                'content': base64.b64encode(file_content).decode('utf-8'),
+                'size': file.size
+            }
+            files_data.append(file_data)
+
+        # Get form data
+        title_prefix = request.POST.get('title_prefix', '')
+        description = request.POST.get('description', '')
+        image_type = request.POST.get('image_type', 'PHOTO')
+
+        # Start Celery task
+        task = process_image_upload.delay(
+            case_id=case.id,
+            files_data=files_data,
+            title_prefix=title_prefix,
+            description=description,
+            user_id=request.user.id,
+            image_type=image_type
+        )
+
+        # Return task ID for progress tracking
+        return JsonResponse({
+            'task_id': task.id,
+            'status': 'success',
+            'message': f'Upload started for {len(files)} files'
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def image_upload_progress(request, task_id):
+    """Get the progress of an image upload task"""
+    try:
+        from celery.result import AsyncResult
+        result = AsyncResult(task_id)
+
+        response_data = {
+            'state': result.state,
+            'task_id': task_id
+        }
+
+        if result.state == 'PENDING':
+            response_data['current'] = 0
+            response_data['total'] = 100
+            response_data['status'] = 'Pending...'
+        elif result.state == 'PROGRESS':
+            response_data['current'] = result.info.get('current', 0)
+            response_data['total'] = result.info.get('total', 1)
+            response_data['status'] = result.info.get('status', '')
+        elif result.state == 'SUCCESS':
+            response_data['current'] = 100
+            response_data['total'] = 100
+            response_data['status'] = 'Upload complete!'
+            response_data['result'] = result.result
+        else:  # FAILURE
+            response_data['current'] = 0
+            response_data['total'] = 100
+            response_data['status'] = str(result.info)
+            response_data['error'] = True
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required

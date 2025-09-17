@@ -36,6 +36,7 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "storages",
     "django_summernote",
+    "celery_progress",
 ]
 
 LOCAL_APPS = [

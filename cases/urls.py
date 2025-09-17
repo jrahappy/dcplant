@@ -30,6 +30,8 @@ urlpatterns = [
     # Image URLs
     path("case/<int:case_pk>/images/", views.image_list, name="image_list"),
     path("case/<int:case_pk>/image/upload/", views.image_upload, name="image_upload"),
+    path("case/<int:case_pk>/image/upload-async/", views.image_upload_async, name="image_upload_async"),
+    path("upload-progress/<str:task_id>/", views.image_upload_progress, name="image_upload_progress"),
     path("image/<int:pk>/", views.image_detail, name="image_detail"),
     path("image/<int:pk>/edit/", views.image_edit, name="image_edit"),
     path("image/<int:pk>/delete/", views.image_delete, name="image_delete"),

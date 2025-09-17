@@ -670,36 +670,269 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Form submission with progress
+// Form submission with async upload using Celery
 uploadForm.addEventListener('submit', function(e) {
-    // Check if files are selected (either through our UI or directly)
+    e.preventDefault();
+
+    // Check if files are selected
     const hasFiles = fileInput.files && fileInput.files.length > 0;
-    
+
     if (!hasFiles) {
-        e.preventDefault();
         alert('Please select at least one file to upload');
         return false;
     }
-    
-    // Show progress overlay
-    const progressOverlay = document.getElementById('progressOverlay');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const uploadStatus = document.getElementById('uploadStatus');
-    
-    progressOverlay.style.display = 'flex';
-    uploadStatus.textContent = `Uploading ${fileInput.files.length} file(s)...`;
-    
-    // Simulate progress (actual progress tracking would require AJAX)
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += 10;
-        if (progress <= 90) {
-            uploadProgress.style.width = progress + '%';
-            uploadProgress.textContent = progress + '%';
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('uploadProgressModal'));
+    modal.show();
+
+    // Prepare form data
+    const formData = new FormData(uploadForm);
+
+    // Start async upload
+    fetch(`{% url 'cases:image_upload_async' case.pk %}`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
         }
-    }, 200);
-    
-    // Form will submit normally
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.task_id) {
+            // Start polling for progress
+            pollUploadProgress(data.task_id);
+        } else {
+            throw new Error(data.error || 'Upload failed');
+        }
+    })
+    .catch(error => {
+        console.error('Upload error:', error);
+        document.getElementById('uploadErrorText').textContent = error.message;
+        document.getElementById('uploadErrorAlert').classList.remove('d-none');
+        document.getElementById('uploadSpinner').classList.add('d-none');
+        document.getElementById('uploadDoneBtn').classList.remove('d-none');
+        document.getElementById('modalCloseBtn').style.display = 'block';
+    });
+});
+
+function pollUploadProgress(taskId) {
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    const statusText = document.getElementById('uploadStatusText');
+    const detailsText = document.getElementById('uploadDetailsText');
+    const spinner = document.getElementById('uploadSpinner');
+    const doneBtn = document.getElementById('uploadDoneBtn');
+    const successAlert = document.getElementById('uploadSuccessAlert');
+    const successText = document.getElementById('uploadSuccessText');
+    const errorAlert = document.getElementById('uploadErrorAlert');
+    const errorText = document.getElementById('uploadErrorText');
+
+    // Track if we're dealing with a large file
+    let isLargeFile = false;
+    const totalFiles = fileInput.files.length;
+    const totalSize = Array.from(fileInput.files).reduce((sum, file) => sum + file.size, 0);
+
+    // Detect large single file
+    if (totalFiles === 1 && totalSize > 10 * 1024 * 1024) { // > 10MB
+        isLargeFile = true;
+    }
+
+    // Track if modal is closed
+    let isModalClosed = false;
+    const modal = bootstrap.Modal.getInstance(document.getElementById('uploadProgressModal'));
+
+    // Listen for modal close event
+    document.getElementById('uploadProgressModal').addEventListener('hidden.bs.modal', function() {
+        isModalClosed = true;
+    });
+
+    const checkProgress = () => {
+        fetch(`{% url 'cases:image_upload_progress' 'TASK_ID' %}`.replace('TASK_ID', taskId))
+        .then(response => response.json())
+        .then(data => {
+            if (data.state === 'PENDING') {
+                statusText.textContent = 'Initializing upload...';
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+                detailsText.textContent = isLargeFile ?
+                    `Preparing ${formatFileSize(totalSize)}` :
+                    `Preparing ${totalFiles} file(s)`;
+                setTimeout(checkProgress, 500);
+            } else if (data.state === 'PROGRESS') {
+                const percent = Math.round((data.current / data.total) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = percent + '%';
+                statusText.textContent = data.status || 'Processing...';
+
+                // Different detail text for large files vs multiple files
+                if (data.total === 100 && data.status && data.status.includes('MB')) {
+                    // Large file processing
+                    detailsText.textContent = `Progress: ${percent}%`;
+                } else {
+                    // Multiple files
+                    detailsText.textContent = `${data.current} of ${data.total} files`;
+                }
+
+                setTimeout(checkProgress, 250); // Faster polling for smoother progress
+            } else if (data.state === 'SUCCESS') {
+                const result = data.result;
+
+                if (isModalClosed) {
+                    // Modal is closed, show toast
+                    showUploadToast('success', `Successfully uploaded ${result.uploaded_count} of ${result.total_files} files!`);
+                    // Redirect after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = `{% url 'cases:case_detail' case.pk %}`;
+                    }, 2000);
+                } else {
+                    // Modal is still open, update modal content
+                    progressBar.style.width = '100%';
+                    progressText.textContent = '100%';
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-success');
+                    spinner.classList.add('d-none');
+
+                    successText.textContent = `Successfully uploaded ${result.uploaded_count} of ${result.total_files} files!`;
+                    successAlert.classList.remove('d-none');
+
+                    if (result.errors && result.errors.length > 0) {
+                        errorText.textContent = 'Some files failed: ' + result.errors.join(', ');
+                        errorAlert.classList.remove('d-none');
+                    }
+
+                    statusText.textContent = 'Upload complete!';
+                    detailsText.textContent = '';
+                    doneBtn.classList.remove('d-none');
+                    document.getElementById('modalCloseBtn').style.display = 'block';
+
+                    // Redirect after 3 seconds
+                    setTimeout(() => {
+                        window.location.href = `{% url 'cases:case_detail' case.pk %}`;
+                    }, 3000);
+                }
+            } else {
+                // FAILURE
+                if (isModalClosed) {
+                    // Modal is closed, show error toast
+                    showUploadToast('error', data.status || 'Upload failed');
+                } else {
+                    // Modal is still open, update modal content
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                    spinner.classList.add('d-none');
+                    errorText.textContent = data.status || 'Upload failed';
+                    errorAlert.classList.remove('d-none');
+                    statusText.textContent = 'Upload failed';
+                    doneBtn.classList.remove('d-none');
+                    document.getElementById('modalCloseBtn').style.display = 'block';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Progress check error:', error);
+            setTimeout(checkProgress, 1000);
+        });
+    };
+
+    checkProgress();
+}
+
+// Function to show toast notification
+function showUploadToast(type, message) {
+    const toastElement = document.getElementById('uploadToast');
+    const toastBody = document.getElementById('uploadToastBody');
+    const toastIcon = document.getElementById('uploadToastIcon');
+
+    // Set toast content based on type
+    if (type === 'success') {
+        toastElement.classList.remove('bg-danger');
+        toastElement.classList.add('bg-success');
+        toastIcon.className = 'bi bi-check-circle-fill me-2';
+    } else {
+        toastElement.classList.remove('bg-success');
+        toastElement.classList.add('bg-danger');
+        toastIcon.className = 'bi bi-exclamation-triangle-fill me-2';
+    }
+
+    toastBody.textContent = message;
+
+    // Show toast
+    const toast = new bootstrap.Toast(toastElement, {
+        delay: 5000,  // Auto hide after 5 seconds
+        animation: true
+    });
+    toast.show();
+}
+
+// Done button handler
+document.getElementById('uploadDoneBtn').addEventListener('click', function() {
+    window.location.href = `{% url 'cases:case_detail' case.pk %}`;
 });
 </script>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="uploadProgressModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-2 border-dark">
+            <div class="modal-header bg-primary text-dark border-2 border-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-cloud-upload"></i> Uploading Files
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="modalCloseBtn" style="display: none;"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="spinner-border text-primary" role="status" id="uploadSpinner">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+
+                <div class="progress mb-3" style="height: 30px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                         role="progressbar"
+                         id="uploadProgressBar"
+                         style="width: 0%;">
+                        <span id="uploadProgressText">0%</span>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <p id="uploadStatusText" class="mb-0">Preparing upload...</p>
+                    <small id="uploadDetailsText" class="text-muted"></small>
+                </div>
+
+                <div id="uploadErrorAlert" class="alert alert-danger mt-3 d-none">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span id="uploadErrorText"></span>
+                </div>
+
+                <div id="uploadSuccessAlert" class="alert alert-success mt-3 d-none">
+                    <i class="bi bi-check-circle"></i>
+                    <span id="uploadSuccessText"></span>
+                </div>
+            </div>
+            <div class="modal-footer border-2 border-dark">
+                <button type="button" class="btn btn-secondary border-2 border-dark d-none" id="uploadCancelBtn">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary border-2 border-dark d-none" id="uploadDoneBtn">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container for Upload Notifications -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div id="uploadToast" class="toast text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body d-flex align-items-center">
+            <i id="uploadToastIcon" class="bi bi-check-circle-fill me-2"></i>
+            <span id="uploadToastBody"></span>
+            <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

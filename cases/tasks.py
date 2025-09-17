@@ -419,6 +419,185 @@ def bulk_update_cases(self, case_ids, updates):
 
 
 @shared_task(bind=True)
+def process_s3_images(self, case_id, s3_keys, title_prefix, description, user_id, image_type='PHOTO'):
+    """
+    Process images uploaded directly to S3
+    """
+    progress_recorder = ProgressRecorder(self)
+
+    try:
+        import boto3
+        from django.conf import settings
+        from botocore.exceptions import ClientError
+
+        # Get case and user
+        case = Case.objects.get(id=case_id)
+        user = User.objects.get(id=user_id)
+
+        total_files = len(s3_keys)
+        processed_count = 0
+        errors = []
+
+        progress_recorder.set_progress(0, total_files, f'Processing {total_files} files from S3...')
+
+        # Initialize S3 client
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=getattr(settings, 'AWS_S3_REGION_NAME', 'us-east-1')
+        )
+
+        # Generate a title for this upload batch
+        from datetime import datetime
+        if title_prefix:
+            group_title = f"{title_prefix} - {datetime.now().strftime('%Y%m%d %H:%M')}"
+        else:
+            group_title = f"S3 Upload - {datetime.now().strftime('%Y%m%d %H:%M')}"
+
+        # Create CaseImage group for this upload
+        with transaction.atomic():
+            case_image = CaseImage.objects.create(
+                case=case,
+                title=group_title,
+                description=description or f"S3 upload of {total_files} file(s)",
+                uploaded_by=user,
+            )
+
+            # Process each S3 file
+            for index, s3_key in enumerate(s3_keys):
+                try:
+                    progress_recorder.set_progress(
+                        index,
+                        total_files,
+                        f'Downloading file {index + 1} of {total_files} from S3'
+                    )
+
+                    # Get object metadata
+                    response = s3_client.head_object(
+                        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                        Key=s3_key
+                    )
+
+                    # Get original filename from metadata
+                    original_filename = response['Metadata'].get('original-name', os.path.basename(s3_key))
+                    file_extension = os.path.splitext(original_filename)[1].lower()
+
+                    # Download file from S3
+                    obj = s3_client.get_object(
+                        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                        Key=s3_key
+                    )
+                    file_content = obj['Body'].read()
+
+                    # Determine file type
+                    if file_extension in ['.dcm', '.dicom']:
+                        file_type = 'DICOM'
+                        is_dicom = True
+                    elif file_extension == '.pdf':
+                        file_type = 'PDF'
+                        is_dicom = False
+                    elif file_extension == '.zip':
+                        file_type = 'ZIP'
+                        is_dicom = False
+                    elif file_extension in ['.jpg', '.jpeg', '.png', '.gif']:
+                        file_type = image_type
+                        is_dicom = False
+                    else:
+                        file_type = 'OTHER'
+                        is_dicom = False
+
+                    # Extract DICOM metadata if applicable
+                    metadata = {}
+                    if is_dicom:
+                        try:
+                            dicom_data = pydicom.dcmread(io.BytesIO(file_content))
+
+                            # Extract metadata
+                            if hasattr(dicom_data, 'PatientName'):
+                                metadata['patient_name'] = str(dicom_data.PatientName)
+                            if hasattr(dicom_data, 'StudyDate'):
+                                metadata['study_date'] = str(dicom_data.StudyDate)
+                            if hasattr(dicom_data, 'Modality'):
+                                metadata['modality'] = str(dicom_data.Modality)
+                            if hasattr(dicom_data, 'StudyDescription'):
+                                metadata['study_description'] = str(dicom_data.StudyDescription)
+                        except Exception as e:
+                            logger.error(f"Error reading DICOM metadata: {e}")
+
+                    # Create Django file
+                    django_file = ContentFile(file_content, name=original_filename)
+
+                    # Create CaseImageItem
+                    image_item = CaseImageItem.objects.create(
+                        caseimage=case_image,
+                        image=django_file,
+                        image_type=file_type,
+                        is_dicom=is_dicom,
+                        is_primary=(
+                            index == 0 and
+                            not CaseImageItem.objects.filter(
+                                caseimage__case=case,
+                                is_primary=True
+                            ).exists()
+                        ),
+                        metadata=metadata,
+                        order=index,
+                    )
+
+                    # Delete the S3 file after successful processing (optional)
+                    # s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=s3_key)
+
+                    processed_count += 1
+                    logger.info(f"Successfully processed S3 file {original_filename} for case {case.case_number}")
+
+                except ClientError as e:
+                    error_msg = f"S3 error for {s3_key}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+                except Exception as e:
+                    error_msg = f"Error processing {s3_key}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+
+            # Log activity
+            if processed_count > 0:
+                CaseActivity.objects.create(
+                    case=case,
+                    user=user,
+                    activity_type='IMAGE_ADDED',
+                    description=f'Added {processed_count} image(s) via S3 upload',
+                    metadata={
+                        'processed_count': processed_count,
+                        'total_files': total_files,
+                        'errors': errors,
+                        's3_upload': True
+                    }
+                )
+
+        progress_recorder.set_progress(
+            total_files,
+            total_files,
+            f'S3 processing complete! {processed_count} of {total_files} files processed successfully.'
+        )
+
+        return {
+            'status': 'success',
+            'processed_count': processed_count,
+            'total_files': total_files,
+            'errors': errors,
+            'case_id': case_id
+        }
+
+    except Exception as e:
+        logger.error(f"Error in S3 image processing task: {str(e)}")
+        return {
+            'status': 'error',
+            'error': str(e)
+        }
+
+
+@shared_task(bind=True)
 def export_cases_to_csv(self, user_id, filters=None):
     """
     Export filtered cases to CSV format

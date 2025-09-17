@@ -1475,6 +1475,130 @@ def image_upload_progress(request, task_id):
 
 
 @login_required
+@require_http_methods(["POST"])
+def generate_s3_presigned_url(request, case_pk):
+    """Generate S3 pre-signed URLs for direct upload"""
+    import boto3
+    import uuid
+    from botocore.exceptions import ClientError
+
+    profile = ensure_user_profile(request.user)
+    user_org = profile.organization
+
+    # Allow upload if case belongs to user's org OR is shared with user's org
+    case_filter = Q(pk=case_pk) & (
+        Q(organization=user_org) | Q(share_with_branches=user_org)
+    )
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
+
+    # Check if S3 is configured
+    if not getattr(settings, 'USE_S3', False):
+        return JsonResponse({'error': 'S3 storage is not configured'}, status=400)
+
+    try:
+        # Get file info from request
+        data = json.loads(request.body)
+        file_name = data.get('file_name')
+        file_type = data.get('file_type', 'application/octet-stream')
+        file_size = data.get('file_size', 0)
+
+        if not file_name:
+            return JsonResponse({'error': 'File name is required'}, status=400)
+
+        # Generate unique S3 key
+        file_extension = os.path.splitext(file_name)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        s3_key = f"cases/{case.id}/uploads/{unique_filename}"
+
+        # Initialize S3 client
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=getattr(settings, 'AWS_S3_REGION_NAME', 'us-east-1')
+        )
+
+        # Generate pre-signed POST URL (valid for 1 hour)
+        presigned_post = s3_client.generate_presigned_post(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=s3_key,
+            Fields={
+                "Content-Type": file_type,
+                "x-amz-meta-original-name": file_name,
+                "x-amz-meta-case-id": str(case.id),
+                "x-amz-meta-user-id": str(request.user.id),
+            },
+            Conditions=[
+                {"Content-Type": file_type},
+                ["content-length-range", 0, 1073741824],  # Max 1GB
+                {"x-amz-meta-original-name": file_name},
+            ],
+            ExpiresIn=3600  # 1 hour
+        )
+
+        return JsonResponse({
+            'presigned_post': presigned_post,
+            's3_key': s3_key,
+            'unique_filename': unique_filename,
+            'original_filename': file_name
+        })
+
+    except ClientError as e:
+        logging.error(f"S3 client error: {e}")
+        return JsonResponse({'error': 'Failed to generate upload URL'}, status=500)
+    except Exception as e:
+        logging.error(f"Error generating presigned URL: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def process_s3_upload(request, case_pk):
+    """Process files uploaded directly to S3"""
+    profile = ensure_user_profile(request.user)
+    user_org = profile.organization
+
+    # Allow processing if case belongs to user's org OR is shared with user's org
+    case_filter = Q(pk=case_pk) & (
+        Q(organization=user_org) | Q(share_with_branches=user_org)
+    )
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
+
+    try:
+        # Get S3 upload info from request
+        data = json.loads(request.body)
+        s3_keys = data.get('s3_keys', [])
+        title_prefix = data.get('title', '')
+        description = data.get('description', '')
+        image_type = data.get('image_type', 'PHOTO')
+
+        if not s3_keys:
+            return JsonResponse({'error': 'No S3 keys provided'}, status=400)
+
+        # Create task to process S3 files
+        from .tasks import process_s3_images
+
+        task = process_s3_images.delay(
+            case_id=case.id,
+            s3_keys=s3_keys,
+            title_prefix=title_prefix,
+            description=description,
+            user_id=request.user.id,
+            image_type=image_type
+        )
+
+        return JsonResponse({
+            'task_id': task.id,
+            'status': 'success',
+            'message': f'Processing {len(s3_keys)} files from S3'
+        })
+
+    except Exception as e:
+        logging.error(f"Error processing S3 upload: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
 def image_edit(request, pk):
     """Edit a case image"""
     profile = ensure_user_profile(request.user)

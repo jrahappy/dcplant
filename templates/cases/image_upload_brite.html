@@ -670,8 +670,100 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Form submission with async upload using Celery
-uploadForm.addEventListener('submit', function(e) {
+// Check if S3 is available
+async function checkS3Available() {
+    try {
+        // Check if USE_S3 is configured by attempting to get a presigned URL
+        const testResponse = await fetch(`{% url 'cases:s3_presigned_url' case.pk %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                file_name: 'test.txt',
+                file_type: 'text/plain',
+                file_size: 1
+            })
+        });
+
+        const data = await testResponse.json();
+        return !data.error || !data.error.includes('S3 storage is not configured');
+    } catch {
+        return false;
+    }
+}
+
+// Upload file directly to S3
+async function uploadToS3(file, onProgress) {
+    try {
+        // Get presigned URL from backend
+        const presignedResponse = await fetch(`{% url 'cases:s3_presigned_url' case.pk %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                file_name: file.name,
+                file_type: file.type || 'application/octet-stream',
+                file_size: file.size
+            })
+        });
+
+        if (!presignedResponse.ok) {
+            throw new Error('Failed to get upload URL');
+        }
+
+        const presignedData = await presignedResponse.json();
+
+        if (presignedData.error) {
+            throw new Error(presignedData.error);
+        }
+
+        // Create form data for S3 upload
+        const formData = new FormData();
+        Object.keys(presignedData.presigned_post.fields).forEach(key => {
+            formData.append(key, presignedData.presigned_post.fields[key]);
+        });
+        formData.append('file', file);
+
+        // Upload to S3 with progress tracking
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (evt) => {
+                if (evt.lengthComputable && onProgress) {
+                    onProgress(evt.loaded, evt.total);
+                }
+            });
+
+            xhr.addEventListener('load', function() {
+                if (xhr.status === 204 || xhr.status === 200) {
+                    resolve({
+                        s3_key: presignedData.s3_key,
+                        original_filename: presignedData.original_filename
+                    });
+                } else {
+                    reject(new Error(`S3 upload failed with status: ${xhr.status}`));
+                }
+            });
+
+            xhr.addEventListener('error', function() {
+                reject(new Error('Network error during S3 upload'));
+            });
+
+            xhr.open('POST', presignedData.presigned_post.url);
+            xhr.send(formData);
+        });
+    } catch (error) {
+        console.error('S3 upload error:', error);
+        throw error;
+    }
+}
+
+// Form submission with async upload using Celery or S3
+uploadForm.addEventListener('submit', async function(e) {
     e.preventDefault();
 
     // Check if files are selected
@@ -686,20 +778,75 @@ uploadForm.addEventListener('submit', function(e) {
     const modal = new bootstrap.Modal(document.getElementById('uploadProgressModal'));
     modal.show();
 
-    // Prepare form data
-    const formData = new FormData(uploadForm);
-
     // Calculate total file size
     const totalSize = Array.from(fileInput.files).reduce((sum, file) => sum + file.size, 0);
     const totalFiles = fileInput.files.length;
-    const isLargeFile = totalFiles === 1 && totalSize > 10 * 1024 * 1024; // > 10MB
+    const isLargeFile = totalFiles === 1 && totalSize > 50 * 1024 * 1024; // > 50MB
 
-    // Use XMLHttpRequest for upload progress tracking
-    const xhr = new XMLHttpRequest();
+    // Check if we should use S3 for large files
+    const useS3 = isLargeFile && await checkS3Available();
 
-    // Track upload progress
-    xhr.upload.addEventListener('progress', function(evt) {
-        if (evt.lengthComputable) {
+    if (useS3) {
+        // Use S3 for large files
+        try {
+            const file = fileInput.files[0];
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressText = document.getElementById('uploadProgressText');
+            const statusText = document.getElementById('uploadStatusText');
+            const detailsText = document.getElementById('uploadDetailsText');
+
+            statusText.textContent = 'Uploading to S3...';
+
+            // Upload to S3 with progress
+            const s3Result = await uploadToS3(file, (loaded, total) => {
+                const percentComplete = Math.round((loaded / total) * 100);
+                progressBar.style.width = percentComplete + '%';
+                progressText.textContent = percentComplete + '%';
+                detailsText.textContent = `${formatFileSize(loaded)} of ${formatFileSize(total)}`;
+            });
+
+            // Process S3 upload
+            statusText.textContent = 'Processing uploaded file...';
+            detailsText.textContent = '';
+
+            const processResponse = await fetch(`{% url 'cases:s3_process_upload' case.pk %}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    s3_keys: [s3Result.s3_key],
+                    title: document.getElementById('id_title').value,
+                    description: document.getElementById('id_description').value,
+                    image_type: document.getElementById('id_image_type').value
+                })
+            });
+
+            const processData = await processResponse.json();
+
+            if (processData.task_id) {
+                // Start polling for processing progress
+                pollUploadProgress(processData.task_id);
+            } else {
+                throw new Error(processData.error || 'Processing failed');
+            }
+        } catch (error) {
+            console.error('S3 upload error:', error);
+            document.getElementById('uploadErrorText').textContent = error.message;
+            document.getElementById('uploadErrorAlert').classList.remove('d-none');
+            document.getElementById('uploadSpinner').classList.add('d-none');
+            document.getElementById('uploadDoneBtn').classList.remove('d-none');
+            document.getElementById('modalCloseBtn').style.display = 'block';
+        }
+    } else {
+        // Use traditional upload for smaller files
+        const formData = new FormData(uploadForm);
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', function(evt) {
+            if (evt.lengthComputable) {
             const percentComplete = Math.round((evt.loaded / evt.total) * 100);
             const progressBar = document.getElementById('uploadProgressBar');
             const progressText = document.getElementById('uploadProgressText');
@@ -760,10 +907,11 @@ uploadForm.addEventListener('submit', function(e) {
         document.getElementById('modalCloseBtn').style.display = 'block';
     });
 
-    // Send request
-    xhr.open('POST', `{% url 'cases:image_upload_async' case.pk %}`);
-    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
-    xhr.send(formData);
+        // Send request
+        xhr.open('POST', `{% url 'cases:image_upload_async' case.pk %}`);
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+        xhr.send(formData);
+    }
 });
 
 function pollUploadProgress(taskId) {

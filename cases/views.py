@@ -41,6 +41,7 @@ import json
 import zipfile
 import tempfile
 import shutil
+import urllib.parse
 from datetime import datetime
 from django.core.mail import send_mail
 from django.conf import settings
@@ -1505,6 +1506,9 @@ def generate_s3_presigned_url(request, case_pk):
         if not file_name:
             return JsonResponse({'error': 'File name is required'}, status=400)
 
+        # Encode non-ASCII characters for S3 metadata
+        encoded_filename = urllib.parse.quote(file_name, safe='')
+
         # Generate unique S3 key
         file_extension = os.path.splitext(file_name)[1]
         unique_filename = f"{uuid.uuid4()}{file_extension}"
@@ -1526,7 +1530,7 @@ def generate_s3_presigned_url(request, case_pk):
                 Key=s3_key,
                 ContentType=file_type,
                 Metadata={
-                    'original-name': file_name,
+                    'original-name': encoded_filename,
                     'case-id': str(case.id),
                     'user-id': str(request.user.id)
                 }
@@ -1567,7 +1571,7 @@ def generate_s3_presigned_url(request, case_pk):
             Key=s3_key,
             Fields={
                 "Content-Type": file_type,
-                "x-amz-meta-original-name": file_name,
+                "x-amz-meta-original-name": encoded_filename,
                 "x-amz-meta-case-id": str(case.id),
                 "x-amz-meta-user-id": str(request.user.id),
             },

@@ -67,8 +67,22 @@ def case_list(request):
 
     # Get cases from user's organization AND shared cases from other organizations
     # Show draft cases only to their creators
+    # Secret cases only visible to creator and shared users
 
-    cases_filter = Q(organization=user_org) | Q(share_with_branches=user_org)
+    # Build filter more explicitly
+    # Cases from user's own organization (non-secret only, or created by user)
+    own_org_cases = (
+        Q(organization=user_org) &
+        (Q(is_secret=False) | Q(created_by=request.user))
+    )
+
+    # Cases from OTHER organizations (only if explicitly shared)
+    shared_from_other_orgs = (
+        Q(share_with_branches=user_org) &
+        ~Q(organization=user_org)
+    )
+
+    cases_filter = own_org_cases | shared_from_other_orgs
     # Only show draft cases to their creators
     cases_filter &= ~Q(status="DRAFT") | Q(created_by=request.user)
 
@@ -163,17 +177,22 @@ def case_detail(request, pk):
 
     # Allow viewing if case belongs to user's org OR is shared with user's org
     # Draft cases can only be viewed by their creators
+    # Secret cases can only be viewed by creator or if explicitly shared
 
     case_filter = Q(pk=pk) & (
         Q(organization=user_org) | Q(share_with_branches=user_org)
     )
 
-    # Try to get the case first to check if it's a draft
+    # Try to get the case first to check if it's a draft or secret
     try:
         case = Case.objects.get(pk=pk)
         if case.status == "DRAFT" and case.created_by != request.user:
             # Draft case can only be viewed by creator
             raise Case.DoesNotExist
+        if case.is_secret:
+            # Secret case can only be viewed by creator or if shared with user's org
+            if case.created_by != request.user and user_org not in case.share_with_branches.all():
+                raise Case.DoesNotExist
     except Case.DoesNotExist:
         # Case doesn't exist or user doesn't have access
         case = get_object_or_404(Case.objects.filter(case_filter).distinct())
@@ -343,6 +362,11 @@ def case_update(request, pk):
     case = get_object_or_404(Case, pk=pk, organization=user_org)
 
     # Check permissions - shared cases cannot be edited
+    # Secret cases can only be edited by creator
+    if case.is_secret and request.user != case.created_by:
+        messages.error(request, "Secret cases can only be edited by their creator.")
+        return redirect("cases:case_detail", pk=case.pk)
+
     if not (
         request.user == case.created_by or profile.is_admin or request.user.is_staff
     ):
@@ -953,8 +977,23 @@ def patient_detail(request, pk):
         return redirect("cases:patient_list")
 
     # Get only cases that the user has access to
+    # Build filter more explicitly
+    # Cases from user's own organization (non-secret only, or created by user)
+    own_org_cases = (
+        Q(organization=user_org) &
+        (Q(is_secret=False) | Q(created_by=request.user))
+    )
+
+    # Cases from OTHER organizations (only if explicitly shared)
+    shared_from_other_orgs = (
+        Q(share_with_branches=user_org) &
+        ~Q(organization=user_org)
+    )
+
+    cases_filter = own_org_cases | shared_from_other_orgs
+
     cases = (
-        patient.cases.filter(Q(organization=user_org) | Q(share_with_branches=user_org))
+        patient.cases.filter(cases_filter)
         .distinct()
         .select_related("category", "assigned_to")
     )

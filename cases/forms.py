@@ -99,6 +99,7 @@ class CaseForm(forms.ModelForm):
             "is_shared",
             "share_with_branches",
             "is_deidentified",
+            "is_secret",
         ]
         widgets = {
             "patient": forms.Select(attrs={"class": "form-select"}),
@@ -122,6 +123,7 @@ class CaseForm(forms.ModelForm):
                 attrs={"class": "form-select", "size": 3}
             ),
             "is_deidentified": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "is_secret": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):

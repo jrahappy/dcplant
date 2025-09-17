@@ -147,6 +147,7 @@ class Case(models.Model):
         Organization, blank=True, related_name="shared_cases"
     )
     is_deidentified = models.BooleanField(default=False)
+    is_secret = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

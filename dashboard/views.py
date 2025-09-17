@@ -24,11 +24,9 @@ def dashboard_home(request):
     
     profile = ensure_user_profile(request.user)
     user_org = profile.organization
-    
-    # Check if user is from HQ (superuser or HQ organization type)
-    is_hq = (user_org.org_type == 'HQ' or 
-             profile.role == 'HQ_ADMIN' or 
-             request.user.is_superuser)
+
+    # Remove is_hq logic - all users should follow same rules
+    is_hq = False
     
     # Get current theme
     theme = request.session.get('theme', django_settings.DEFAULT_THEME)
@@ -45,18 +43,26 @@ def dashboard_home(request):
     
     # Get statistics based on user's access level
     if is_hq:
-        # HQ users see all organizations' data (excluding draft cases)
-        total_cases = Case.objects.exclude(status='DRAFT').count()
+        # HQ users see all organizations' data (excluding draft cases and secret cases not created by them)
+        total_cases = Case.objects.exclude(status='DRAFT').filter(
+            Q(is_secret=False) | Q(created_by=request.user)
+        ).count()
         active_cases = Case.objects.filter(
             status__in=['ACTIVE', 'IN_REVIEW']
+        ).filter(
+            Q(is_secret=False) | Q(created_by=request.user)
         ).count()
+
+        # Total patients - for HQ show all patients
         total_patients = Patient.objects.all().count()
         total_organizations = Organization.objects.filter(is_active=True).count()
         
         # Recent cases from all organizations (exclude drafts not created by current user)
+        # Also exclude secret cases not created by current user
         recent_cases_filter = ~Q(status="DRAFT") | Q(created_by=request.user)
+        recent_cases_filter &= Q(is_secret=False) | Q(created_by=request.user)
         recent_cases = Case.objects.filter(recent_cases_filter).select_related(
-            'patient', 'category', 'assigned_to', 'organization'
+            'patient', 'category', 'assigned_to', 'organization', 'created_by'
         ).order_by('-created_at')[:10]
         
         # Recent activities from all organizations
@@ -74,20 +80,71 @@ def dashboard_home(request):
         ).order_by('-case_count')[:5]
         
     else:
-        # Regular users see only their organization's data (excluding draft cases)
-        total_cases = Case.objects.filter(organization=user_org).exclude(status='DRAFT').count()
-        active_cases = Case.objects.filter(
-            organization=user_org,
-            status__in=['ACTIVE', 'IN_REVIEW']
-        ).count()
-        total_patients = Patient.objects.filter(organization=user_org).count()
+        # Regular users see their organization's data AND shared cases (using same logic as case list)
+        # Cases from user's own organization (non-secret only, or created by user)
+        own_org_cases = (
+            Q(organization=user_org) &
+            (Q(is_secret=False) | Q(created_by=request.user))
+        )
+        # Cases from OTHER organizations (only if explicitly shared)
+        shared_from_other_orgs = (
+            Q(share_with_branches=user_org) &
+            ~Q(organization=user_org)
+        )
+
+        cases_filter_base = own_org_cases | shared_from_other_orgs
+
+        # Total cases (excluding drafts not created by user)
+        total_cases_filter = cases_filter_base & (~Q(status='DRAFT') | Q(created_by=request.user))
+        total_cases = Case.objects.filter(total_cases_filter).distinct().count()
+
+        # Active cases
+        active_cases_filter = cases_filter_base & Q(status__in=['ACTIVE', 'IN_REVIEW'])
+        active_cases = Case.objects.filter(active_cases_filter).distinct().count()
+
+        # Total patients - from own organization AND from shared cases
+        # Patients from user's own organization
+        own_org_patients = Patient.objects.filter(organization=user_org)
+
+        # Patients from shared cases (from other organizations)
+        shared_case_patients = Patient.objects.filter(
+            cases__share_with_branches=user_org
+        ).exclude(
+            organization=user_org
+        )
+
+        # Combine and count distinct patients
+        total_patients = (own_org_patients | shared_case_patients).distinct().count()
         total_organizations = 1
         
-        # Recent cases from user's organization (exclude drafts not created by current user)
-        recent_cases_filter = Q(organization=user_org) & (~Q(status="DRAFT") | Q(created_by=request.user))
-        recent_cases = Case.objects.filter(recent_cases_filter).select_related(
-            'patient', 'category', 'assigned_to'
-        ).order_by('-created_at')[:5]
+        # Get recent cases - exactly matching case_list logic
+        # First, get all cases from user's org (non-secret or created by user)
+        from_own_org = Case.objects.filter(
+            organization=user_org
+        ).filter(
+            Q(is_secret=False) | Q(created_by=request.user)
+        )
+
+        # Then, get cases from OTHER orgs that are shared with user's org
+        from_other_orgs_shared = Case.objects.filter(
+            share_with_branches=user_org
+        ).exclude(
+            organization=user_org  # Explicitly exclude same org
+        )
+
+        # Combine the two querysets
+        from django.db.models import Q
+        all_cases = from_own_org | from_other_orgs_shared
+
+        # Filter out draft cases not created by user
+        all_cases = all_cases.filter(
+            ~Q(status="DRAFT") | Q(created_by=request.user)
+        )
+
+        # Get recent 5 cases
+        recent_cases = all_cases.distinct().select_related(
+            "patient", "category", "assigned_to", "created_by", "organization"
+        ).order_by("-created_at")[:5]
         
         # Recent activities from user's organization
         recent_activities = CaseActivity.objects.filter(
@@ -202,10 +259,16 @@ def search(request):
     profile = ensure_user_profile(request.user)
     user_org = profile.organization
     
-    # Search cases
-    cases = Case.objects.filter(
-        organization=user_org
-    ).filter(
+    # Search cases (exclude secret cases not created by current user)
+    cases_filter = Q(organization=user_org)
+    # Exclude secret cases unless created by current user or shared with user's org
+    cases_filter &= (
+        Q(is_secret=False) |
+        Q(created_by=request.user) |
+        Q(is_secret=True, share_with_branches=user_org)
+    )
+
+    cases = Case.objects.filter(cases_filter).filter(
         Q(case_number__icontains=query) |
         Q(patient__first_name__icontains=query) |
         Q(patient__last_name__icontains=query) |

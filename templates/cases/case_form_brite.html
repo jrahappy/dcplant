@@ -178,7 +178,24 @@
                             {% endif %} -->
                         </div>
                     </div>
-                    
+
+                    <!-- Privacy Options Row -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox"
+                                       name="{{ form.is_secret.name }}"
+                                       class="form-check-input border-2 border-dark"
+                                       id="{{ form.is_secret.id_for_label }}"
+                                       {% if form.is_secret.value %}checked{% endif %}>
+                                <label class="form-check-label" for="{{ form.is_secret.id_for_label }}">
+                                    <i class="bi bi-lock"></i> <strong>Secret Case</strong>
+                                    <small class="text-muted">(Restricted visibility)</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Selected Patient Info (will be populated via JS) -->
                     <!-- <div id="patientInfo" class="alert alert-info border-2 border-dark d-none">
                         <i class="bi bi-info-circle"></i> 

@@ -734,7 +734,12 @@ async function uploadToS3(file, onProgress) {
             throw new Error(presignedData.error);
         }
 
-        // Create form data for S3 upload
+        // Check if multipart upload is needed (for files > 100MB)
+        if (presignedData.upload_type === 'multipart') {
+            return await uploadMultipart(file, presignedData, onProgress);
+        }
+
+        // Simple upload for smaller files
         const formData = new FormData();
         Object.keys(presignedData.presigned_post.fields).forEach(key => {
             formData.append(key, presignedData.presigned_post.fields[key]);
@@ -752,12 +757,13 @@ async function uploadToS3(file, onProgress) {
             });
 
             xhr.addEventListener('load', function() {
-                if (xhr.status === 204 || xhr.status === 200) {
+                if (xhr.status === 204 || xhr.status === 200 || xhr.status === 201) {
                     resolve({
                         s3_key: presignedData.s3_key,
                         original_filename: presignedData.original_filename
                     });
                 } else {
+                    console.error('S3 upload failed. Status:', xhr.status, 'Response:', xhr.responseText);
                     reject(new Error(`S3 upload failed with status: ${xhr.status}`));
                 }
             });
@@ -773,6 +779,90 @@ async function uploadToS3(file, onProgress) {
         console.error('S3 upload error:', error);
         throw error;
     }
+}
+
+// Handle multipart upload for large files
+async function uploadMultipart(file, presignedData, onProgress) {
+    const { presigned_urls, part_size, upload_id, s3_key, original_filename } = presignedData;
+    const parts = [];
+    let uploadedBytes = 0;
+
+    try {
+        // Upload each part
+        for (let i = 0; i < presigned_urls.length; i++) {
+            const start = i * part_size;
+            const end = Math.min(start + part_size, file.size);
+            const chunk = file.slice(start, end);
+
+            const response = await uploadPart(presigned_urls[i], chunk, (loaded) => {
+                if (onProgress) {
+                    onProgress(uploadedBytes + loaded, file.size);
+                }
+            });
+
+            parts.push({
+                ETag: response.etag,
+                PartNumber: i + 1
+            });
+
+            uploadedBytes += (end - start);
+        }
+
+        // Complete the multipart upload
+        const completeResponse = await fetch(`{% url 'cases:s3_complete_multipart' case.pk %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                s3_key: s3_key,
+                upload_id: upload_id,
+                parts: parts
+            })
+        });
+
+        if (!completeResponse.ok) {
+            throw new Error('Failed to complete multipart upload');
+        }
+
+        return {
+            s3_key: s3_key,
+            original_filename: original_filename
+        };
+    } catch (error) {
+        console.error('Multipart upload error:', error);
+        throw error;
+    }
+}
+
+// Upload a single part
+function uploadPart(url, chunk, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (evt) => {
+            if (evt.lengthComputable && onProgress) {
+                onProgress(evt.loaded);
+            }
+        });
+
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200 || xhr.status === 204) {
+                const etag = xhr.getResponseHeader('ETag');
+                resolve({ etag: etag });
+            } else {
+                reject(new Error(`Part upload failed with status: ${xhr.status}`));
+            }
+        });
+
+        xhr.addEventListener('error', function() {
+            reject(new Error('Network error during part upload'));
+        });
+
+        xhr.open('PUT', url);
+        xhr.send(chunk);
+    });
 }
 
 // Form submission with async upload using Celery or S3

@@ -1518,22 +1518,62 @@ def generate_s3_presigned_url(request, case_pk):
             region_name=getattr(settings, 'AWS_S3_REGION_NAME', 'us-east-1')
         )
 
-        # Generate pre-signed POST URL (valid for 1 hour)
+        # For files > 100MB, use multipart upload approach
+        if file_size > 100 * 1024 * 1024:  # 100MB threshold
+            # Initiate multipart upload
+            multipart_upload = s3_client.create_multipart_upload(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=s3_key,
+                ContentType=file_type,
+                Metadata={
+                    'original-name': file_name,
+                    'case-id': str(case.id),
+                    'user-id': str(request.user.id)
+                }
+            )
+
+            # Calculate number of parts (5MB minimum per part, except last)
+            part_size = max(5 * 1024 * 1024, file_size // 10000)  # 5MB min, max 10000 parts
+            num_parts = (file_size + part_size - 1) // part_size
+
+            # Generate presigned URLs for each part
+            presigned_urls = []
+            for part_number in range(1, num_parts + 1):
+                presigned_url = s3_client.generate_presigned_url(
+                    'upload_part',
+                    Params={
+                        'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                        'Key': s3_key,
+                        'UploadId': multipart_upload['UploadId'],
+                        'PartNumber': part_number
+                    },
+                    ExpiresIn=3600
+                )
+                presigned_urls.append(presigned_url)
+
+            return JsonResponse({
+                'upload_type': 'multipart',
+                'upload_id': multipart_upload['UploadId'],
+                'presigned_urls': presigned_urls,
+                'part_size': part_size,
+                's3_key': s3_key,
+                'unique_filename': unique_filename,
+                'original_filename': file_name
+            })
+
+        # For smaller files, use simple presigned POST (without ACL to avoid 403)
         presigned_post = s3_client.generate_presigned_post(
             Bucket=settings.AWS_STORAGE_BUCKET_NAME,
             Key=s3_key,
             Fields={
-                "acl": "private",  # Set ACL to private
                 "Content-Type": file_type,
                 "x-amz-meta-original-name": file_name,
                 "x-amz-meta-case-id": str(case.id),
                 "x-amz-meta-user-id": str(request.user.id),
             },
             Conditions=[
-                {"acl": "private"},
                 {"Content-Type": file_type},
                 ["content-length-range", 0, 1073741824],  # Max 1GB
-                {"x-amz-meta-original-name": file_name},
             ],
             ExpiresIn=3600  # 1 hour
         )
@@ -1550,6 +1590,61 @@ def generate_s3_presigned_url(request, case_pk):
         return JsonResponse({'error': 'Failed to generate upload URL'}, status=500)
     except Exception as e:
         logging.error(f"Error generating presigned URL: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def complete_multipart_upload(request, case_pk):
+    """Complete a multipart upload after all parts are uploaded"""
+    import boto3
+    from botocore.exceptions import ClientError
+
+    profile = ensure_user_profile(request.user)
+    user_org = profile.organization
+
+    # Verify case access
+    case_filter = Q(pk=case_pk) & (
+        Q(organization=user_org) | Q(share_with_branches=user_org)
+    )
+    case = get_object_or_404(Case.objects.filter(case_filter).distinct())
+
+    try:
+        data = json.loads(request.body)
+        s3_key = data.get('s3_key')
+        upload_id = data.get('upload_id')
+        parts = data.get('parts', [])
+
+        if not all([s3_key, upload_id, parts]):
+            return JsonResponse({'error': 'Missing required parameters'}, status=400)
+
+        # Initialize S3 client
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=getattr(settings, 'AWS_S3_REGION_NAME', 'us-east-1')
+        )
+
+        # Complete the multipart upload
+        response = s3_client.complete_multipart_upload(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=s3_key,
+            UploadId=upload_id,
+            MultipartUpload={'Parts': parts}
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'location': response.get('Location'),
+            's3_key': s3_key
+        })
+
+    except ClientError as e:
+        logging.error(f"S3 multipart complete error: {e}")
+        return JsonResponse({'error': 'Failed to complete multipart upload'}, status=500)
+    except Exception as e:
+        logging.error(f"Error completing multipart upload: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 

@@ -671,7 +671,12 @@ function formatFileSize(bytes) {
 }
 
 // Check if S3 is available
+let s3Available = null;  // Cache the result
 async function checkS3Available() {
+    if (s3Available !== null) {
+        return s3Available;  // Return cached result
+    }
+
     try {
         // Check if USE_S3 is configured by attempting to get a presigned URL
         const testResponse = await fetch(`{% url 'cases:s3_presigned_url' case.pk %}`, {
@@ -688,8 +693,16 @@ async function checkS3Available() {
         });
 
         const data = await testResponse.json();
-        return !data.error || !data.error.includes('S3 storage is not configured');
-    } catch {
+        s3Available = !data.error || !data.error.includes('S3 storage is not configured');
+
+        if (!s3Available && data.error) {
+            console.log('S3 is not available:', data.error);
+        }
+
+        return s3Available;
+    } catch (error) {
+        console.log('S3 availability check failed:', error);
+        s3Available = false;
         return false;
     }
 }
@@ -1068,9 +1081,12 @@ function showUploadToast(type, message) {
 }
 
 // Done button handler
-document.getElementById('uploadDoneBtn').addEventListener('click', function() {
-    window.location.href = `{% url 'cases:case_detail' case.pk %}`;
-});
+const uploadDoneBtn = document.getElementById('uploadDoneBtn');
+if (uploadDoneBtn) {
+    uploadDoneBtn.addEventListener('click', function() {
+        window.location.href = `{% url 'cases:case_detail' case.pk %}`;
+    });
+}
 </script>
 
 <!-- Progress Modal -->

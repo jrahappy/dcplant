@@ -689,31 +689,81 @@ uploadForm.addEventListener('submit', function(e) {
     // Prepare form data
     const formData = new FormData(uploadForm);
 
-    // Start async upload
-    fetch(`{% url 'cases:image_upload_async' case.pk %}`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
+    // Calculate total file size
+    const totalSize = Array.from(fileInput.files).reduce((sum, file) => sum + file.size, 0);
+    const totalFiles = fileInput.files.length;
+    const isLargeFile = totalFiles === 1 && totalSize > 10 * 1024 * 1024; // > 10MB
+
+    // Use XMLHttpRequest for upload progress tracking
+    const xhr = new XMLHttpRequest();
+
+    // Track upload progress
+    xhr.upload.addEventListener('progress', function(evt) {
+        if (evt.lengthComputable) {
+            const percentComplete = Math.round((evt.loaded / evt.total) * 100);
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressText = document.getElementById('uploadProgressText');
+            const statusText = document.getElementById('uploadStatusText');
+            const detailsText = document.getElementById('uploadDetailsText');
+
+            progressBar.style.width = percentComplete + '%';
+            progressText.textContent = percentComplete + '%';
+
+            if (percentComplete < 100) {
+                statusText.textContent = 'Uploading to server...';
+                detailsText.textContent = `${formatFileSize(evt.loaded)} of ${formatFileSize(evt.total)}`;
+            } else {
+                statusText.textContent = 'Processing files...';
+                detailsText.textContent = 'Please wait while files are being processed';
+            }
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.task_id) {
-            // Start polling for progress
-            pollUploadProgress(data.task_id);
+    });
+
+    // Handle response
+    xhr.addEventListener('load', function() {
+        if (xhr.status === 200) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (data.task_id) {
+                    // Update status to processing
+                    document.getElementById('uploadStatusText').textContent = 'Processing files on server...';
+                    document.getElementById('uploadDetailsText').textContent = '';
+                    // Start polling for Celery task progress
+                    pollUploadProgress(data.task_id);
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            } catch (error) {
+                console.error('Response parse error:', error);
+                document.getElementById('uploadErrorText').textContent = 'Invalid response from server';
+                document.getElementById('uploadErrorAlert').classList.remove('d-none');
+                document.getElementById('uploadSpinner').classList.add('d-none');
+                document.getElementById('uploadDoneBtn').classList.remove('d-none');
+                document.getElementById('modalCloseBtn').style.display = 'block';
+            }
         } else {
-            throw new Error(data.error || 'Upload failed');
+            document.getElementById('uploadErrorText').textContent = `Upload failed with status: ${xhr.status}`;
+            document.getElementById('uploadErrorAlert').classList.remove('d-none');
+            document.getElementById('uploadSpinner').classList.add('d-none');
+            document.getElementById('uploadDoneBtn').classList.remove('d-none');
+            document.getElementById('modalCloseBtn').style.display = 'block';
         }
-    })
-    .catch(error => {
-        console.error('Upload error:', error);
-        document.getElementById('uploadErrorText').textContent = error.message;
+    });
+
+    // Handle errors
+    xhr.addEventListener('error', function() {
+        console.error('Upload error');
+        document.getElementById('uploadErrorText').textContent = 'Network error during upload';
         document.getElementById('uploadErrorAlert').classList.remove('d-none');
         document.getElementById('uploadSpinner').classList.add('d-none');
         document.getElementById('uploadDoneBtn').classList.remove('d-none');
         document.getElementById('modalCloseBtn').style.display = 'block';
     });
+
+    // Send request
+    xhr.open('POST', `{% url 'cases:image_upload_async' case.pk %}`);
+    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+    xhr.send(formData);
 });
 
 function pollUploadProgress(taskId) {
@@ -746,6 +796,10 @@ function pollUploadProgress(taskId) {
     document.getElementById('uploadProgressModal').addEventListener('hidden.bs.modal', function() {
         isModalClosed = true;
     });
+
+    // Reset progress bar style for processing phase
+    progressBar.classList.remove('bg-success', 'bg-danger');
+    progressBar.classList.add('progress-bar-animated', 'progress-bar-striped');
 
     const checkProgress = () => {
         fetch(`{% url 'cases:image_upload_progress' 'TASK_ID' %}`.replace('TASK_ID', taskId))
@@ -879,7 +933,7 @@ document.getElementById('uploadDoneBtn').addEventListener('click', function() {
                 <h5 class="modal-title">
                     <i class="bi bi-cloud-upload"></i> Uploading Files
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="modalCloseBtn" style="display: none;"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="modalCloseBtn" style="display:block;"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-3">

@@ -1523,12 +1523,14 @@ def generate_s3_presigned_url(request, case_pk):
             Bucket=settings.AWS_STORAGE_BUCKET_NAME,
             Key=s3_key,
             Fields={
+                "acl": "private",  # Set ACL to private
                 "Content-Type": file_type,
                 "x-amz-meta-original-name": file_name,
                 "x-amz-meta-case-id": str(case.id),
                 "x-amz-meta-user-id": str(request.user.id),
             },
             Conditions=[
+                {"acl": "private"},
                 {"Content-Type": file_type},
                 ["content-length-range", 0, 1073741824],  # Max 1GB
                 {"x-amz-meta-original-name": file_name},

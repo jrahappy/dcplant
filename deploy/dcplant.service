@@ -1,0 +1,38 @@
+[Unit]
+Description=DCPlant Gunicorn Application
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/app
+Environment="PATH=/app/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=core.settings"
+
+# Start command with large upload support
+ExecStart=/app/venv/bin/gunicorn \
+    --config /app/gunicorn.conf.py \
+    --log-level info \
+    --log-file /var/log/gunicorn/gunicorn.log \
+    --access-logfile /var/log/gunicorn/access.log \
+    --error-logfile /var/log/gunicorn/error.log \
+    core.wsgi:application
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Resource limits for large uploads
+LimitNOFILE=65535
+LimitNPROC=32768
+
+# Timeout settings
+TimeoutStartSec=300
+TimeoutStopSec=300
+
+# Environment
+EnvironmentFile=/app/.env
+
+[Install]
+WantedBy=multi-user.target

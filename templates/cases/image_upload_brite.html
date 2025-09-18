@@ -920,9 +920,9 @@ uploadForm.addEventListener('submit', async function(e) {
                 },
                 body: JSON.stringify({
                     s3_keys: [s3Result.s3_key],
-                    title: document.getElementById('id_title').value,
-                    description: document.getElementById('id_description').value,
-                    image_type: document.getElementById('id_image_type').value
+                    title: document.getElementById('id_title_prefix') ? document.getElementById('id_title_prefix').value : '',
+                    description: document.getElementById('id_description') ? document.getElementById('id_description').value : '',
+                    image_type: document.getElementById('id_image_type') ? document.getElementById('id_image_type').value : 'PHOTO'
                 })
             });
 

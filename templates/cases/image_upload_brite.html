@@ -885,11 +885,57 @@ uploadForm.addEventListener('submit', async function(e) {
     const totalSize = Array.from(fileInput.files).reduce((sum, file) => sum + file.size, 0);
     const totalFiles = fileInput.files.length;
     const isLargeFile = totalFiles === 1 && totalSize > 50 * 1024 * 1024; // > 50MB
+    const isManyFiles = totalFiles > 100; // Use async for 100+ files
 
-    // Check if we should use S3 for large files
-    const useS3 = isLargeFile && await checkS3Available();
+    // Check if we should use async upload (for many files) or S3 (for large single files)
+    const useAsync = isManyFiles; // Use Celery for many files
+    const useS3 = !useAsync && isLargeFile && await checkS3Available();
 
-    if (useS3) {
+    if (useAsync) {
+        // Use Celery async upload for many files (100+)
+        try {
+            const formData = new FormData(uploadForm);
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressText = document.getElementById('uploadProgressText');
+            const statusText = document.getElementById('uploadStatusText');
+            const detailsText = document.getElementById('uploadDetailsText');
+
+            statusText.textContent = `Uploading ${totalFiles} files (async)...`;
+            detailsText.textContent = 'Large batch detected - using background processing';
+
+            // Upload to async endpoint
+            const response = await fetch(`{% url 'cases:image_upload_async' case.pk %}`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.task_id) {
+                statusText.textContent = 'Files uploaded! Processing in background...';
+                detailsText.textContent = `Processing ${totalFiles} files...`;
+
+                // Start polling for task progress
+                pollUploadProgress(data.task_id);
+            } else {
+                throw new Error(data.error || 'Failed to start async upload');
+            }
+        } catch (error) {
+            console.error('Async upload error:', error);
+            document.getElementById('uploadErrorText').textContent = error.message;
+            document.getElementById('uploadErrorAlert').classList.remove('d-none');
+            document.getElementById('uploadSpinner').classList.add('d-none');
+            document.getElementById('uploadDoneBtn').classList.remove('d-none');
+            document.getElementById('modalCloseBtn').style.display = 'block';
+        }
+    } else if (useS3) {
         // Use S3 for large files
         try {
             const file = fileInput.files[0];

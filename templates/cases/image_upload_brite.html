@@ -1110,8 +1110,9 @@ function pollUploadProgress(taskId) {
                     `Preparing ${formatFileSize(totalSize)}` :
                     `Preparing ${totalFiles} file(s)`;
                 setTimeout(checkProgress, 500);
-            } else if (data.state === 'PROGRESS') {
-                const percent = Math.round((data.current / data.total) * 100);
+            } else if (data.state === 'PROGRESS' || (data.current > 0 && data.current < data.total)) {
+                // Handle both PROGRESS state and intermediate progress
+                const percent = data.percent || Math.round((data.current / data.total) * 100);
                 progressBar.style.width = percent + '%';
                 progressText.textContent = percent + '%';
                 statusText.textContent = data.status || 'Processing...';
@@ -1120,12 +1121,15 @@ function pollUploadProgress(taskId) {
                 if (data.total === 100 && data.status && data.status.includes('MB')) {
                     // Large file processing
                     detailsText.textContent = `Progress: ${percent}%`;
-                } else {
+                } else if (data.total > 1) {
                     // Multiple files
                     detailsText.textContent = `${data.current} of ${data.total} files`;
+                } else {
+                    // Single file or percentage-based
+                    detailsText.textContent = `Progress: ${percent}%`;
                 }
 
-                setTimeout(checkProgress, 250); // Faster polling for smoother progress
+                setTimeout(checkProgress, 500); // Poll every 500ms
             } else if (data.state === 'SUCCESS') {
                 const result = data.result;
 

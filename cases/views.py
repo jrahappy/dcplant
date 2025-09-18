@@ -1443,33 +1443,60 @@ def image_upload_progress(request, task_id):
     """Get the progress of an image upload task"""
     try:
         from celery.result import AsyncResult
-        result = AsyncResult(task_id)
+        from celery_progress.backend import Progress
 
-        response_data = {
-            'state': result.state,
-            'task_id': task_id
-        }
+        # Try using celery-progress first
+        try:
+            progress = Progress(task_id)
+            info = progress.get_info()
 
-        if result.state == 'PENDING':
-            response_data['current'] = 0
-            response_data['total'] = 100
-            response_data['status'] = 'Pending...'
-        elif result.state == 'PROGRESS':
-            response_data['current'] = result.info.get('current', 0)
-            response_data['total'] = result.info.get('total', 1)
-            response_data['status'] = result.info.get('status', '')
-        elif result.state == 'SUCCESS':
-            response_data['current'] = 100
-            response_data['total'] = 100
-            response_data['status'] = 'Upload complete!'
-            response_data['result'] = result.result
-        else:  # FAILURE
-            response_data['current'] = 0
-            response_data['total'] = 100
-            response_data['status'] = str(result.info)
-            response_data['error'] = True
+            response_data = {
+                'state': info.get('state', 'PENDING'),
+                'task_id': task_id,
+                'current': info.get('current', 0),
+                'total': info.get('total', 100),
+                'status': info.get('description', 'Processing...'),
+                'percent': info.get('percent', 0)
+            }
 
-        return JsonResponse(response_data)
+            # If task is complete, add result
+            if info.get('complete'):
+                response_data['state'] = 'SUCCESS'
+                result = AsyncResult(task_id)
+                if result.successful():
+                    response_data['result'] = result.result
+
+            return JsonResponse(response_data)
+
+        except Exception:
+            # Fallback to regular AsyncResult
+            result = AsyncResult(task_id)
+
+            response_data = {
+                'state': result.state,
+                'task_id': task_id
+            }
+
+            if result.state == 'PENDING':
+                response_data['current'] = 0
+                response_data['total'] = 100
+                response_data['status'] = 'Pending...'
+            elif result.state == 'PROGRESS':
+                response_data['current'] = result.info.get('current', 0)
+                response_data['total'] = result.info.get('total', 1)
+                response_data['status'] = result.info.get('status', '')
+            elif result.state == 'SUCCESS':
+                response_data['current'] = 100
+                response_data['total'] = 100
+                response_data['status'] = 'Upload complete!'
+                response_data['result'] = result.result
+            else:  # FAILURE
+                response_data['current'] = 0
+                response_data['total'] = 100
+                response_data['status'] = str(result.info)
+                response_data['error'] = True
+
+            return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
